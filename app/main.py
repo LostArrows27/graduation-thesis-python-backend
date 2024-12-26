@@ -1,36 +1,32 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, Request, Depends
 from contextlib import asynccontextmanager
 from app.tasks.db_listener import start_listener, stop_listener
-from app.models.model import AIModel
-from app.models.inference import AIInferenceService
+from app.services.ai_services import AIService, get_ai_service
+from app.services.supabase_service import SupabaseService
 
-ai_model = None
-ai_inference_service = None
-
-
-def initialize_ai_service():
-    global ai_model, ai_inference_service
-    print("Initializing AI Model...")
-    ai_model = AIModel()
-    ai_inference_service = AIInferenceService(ai_model)
-    print("AI Model Initialized")
+app = FastAPI()
 
 
+# dependency injection -> AI labeling service + Supabase service into -> bg_task
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # AI Model
-    initialize_ai_service()
-    # pg_notify
-    start_listener()
-
+    app.state.supabase_service = SupabaseService()
+    app.state.ai_service = AIService(app.state.supabase_service)
+    start_listener(app.state.ai_service)
     yield
-
-    # stop pg_notify
     stop_listener()
 
 app = FastAPI(lifespan=lifespan)
 
 
-@app.get("/")
-async def read_root():
-    return {"message": "FastAPI server is running with background tasks and AI service"}
+def get_ai_service(request: Request) -> AIService:
+    return request.app.state.ai_service
+
+
+def get_supabase_service(request: Request) -> SupabaseService:
+    return request.app.state.supabase_service
+
+
+@app.post("/upload")
+def upload_image(filename: str, service: AIService = Depends(get_ai_service)):
+    return service.classify_image(filename)
