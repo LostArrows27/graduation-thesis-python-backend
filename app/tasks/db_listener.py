@@ -12,20 +12,23 @@ conn_params = {
     'password': settings.db_password,
     'host': settings.db_host,
     'port': settings.db_port,
-    "sslmode": "require" 
+    "sslmode": "require"
 }
 
 listener_thread = None
 stop_event = None
 
+
 def listen_to_notifications():
     try:
         conn = psycopg2.connect(**conn_params)
-        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        conn.set_isolation_level(
+            psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
 
         cursor.execute("LISTEN image_meta_data_insert;")
-        logging.info("Listening for insert events on public.image_meta_data...")
+        logging.info(
+            "Listening for insert events on public.image_meta_data...")
 
         while not stop_event.is_set():
             if select.select([conn], [], [], 1) == ([], [], []):
@@ -43,6 +46,7 @@ def listen_to_notifications():
             conn.close()
             logging.info("Database listener stopped.")
 
+
 def start_listener():
     global listener_thread, stop_event
     if listener_thread is None:
@@ -50,6 +54,7 @@ def start_listener():
         stop_event = threading.Event()
         listener_thread = Thread(target=listen_to_notifications)
         listener_thread.start()
+
 
 def stop_listener():
     global listener_thread, stop_event

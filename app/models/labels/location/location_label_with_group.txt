@@ -1,0 +1,164 @@
+*transportation_and_travel*
+airplane cabin
+airport
+bus interior
+bus station
+car interior
+train station
+subway station
+subway interior
+road
+highway
+toll plaza
+dock
+harbor
+railroad track
+bridge
+parking garage
+gas station
+ship
+reception
+hotel
+sauna
+*accommodation_and_living_spaces*
+garden
+attic
+staircase
+lobby
+yard
+dining room
+apartment building
+house
+dorm room
+bedroom
+living room
+kitchen
+bathroom
+locker room
+garage
+veranda
+balcony
+residential neighborhood
+*natural_and_rural_areas*
+ski resort
+snow covered landscape
+factory
+pasture
+wind farm
+farm
+field
+village
+lakeside
+waterfall
+canal
+sea
+campsite
+islet
+cave
+sky
+lawn
+beach
+forest
+mountain
+hill
+desert
+river
+lake
+canyon
+coast
+*lifestyle_and_entertainment*
+ice skating rink
+amusement park
+amusement arcade
+dance studio
+circus tent
+karaoke bar
+art studio
+internet cafe
+club
+movie theater
+theater
+music studio
+music store
+stage
+beauty salon
+shopping mall
+market
+grocery store
+souvenir shop
+clothing store
+bookstore
+florist shop
+fabric store
+pet shop
+*food_and_dining*
+restaurant
+cafeteria
+food court
+outdoor diner
+ice cream parlor
+bar
+coffee shop
+bakery
+*work_and_education_spaces*
+bank
+meeting room
+home office
+office
+office space
+office cubicle
+office building
+veterinarians office
+laboratory
+school
+planetarium
+kindergarden
+classroom
+educational complex
+library
+*sports_and_fitness_spaces*
+fitness center
+gymnasium
+track
+stadium
+sports court
+soccer field
+volleyball court
+tennis court
+badminton court
+baseball field
+golf course
+bowling alley
+playground
+water park
+swimming pool
+raceway
+*historical_and_cultural_sites*
+jail
+museum
+art gallery
+castle
+palace
+church
+temple
+observatory
+cemetery
+lighthouse
+*public_and_event_spaces*
+zoo
+festival ground
+cityscape
+pharmacy
+clinic
+hospital
+park
+fire station
+fountain
+courtroom
+conference center
+aquarium
+tower
+plaza
+street
+alley
+entrance hall
