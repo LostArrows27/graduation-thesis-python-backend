@@ -1,10 +1,19 @@
 from fastapi import FastAPI, Request, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.tasks.db_listener import start_listener, stop_listener
 from app.services.ai_services import AIService, get_ai_service
 from app.services.supabase_service import SupabaseService
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # dependency injection -> AI labeling service + Supabase service into -> bg_task
