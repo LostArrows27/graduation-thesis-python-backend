@@ -60,10 +60,18 @@ def listen_to_notifications(redis_service: RedisService):
                 try:
                     payload = json.loads(notify.payload)
                     image_id = payload["id"]
+                    image_bucket_id = payload["image_bucket_id"]
+                    image_name = payload["image_name"]
 
                     # add image_id to the stream
                     redis_service.push_to_stream(
-                        'image_label_stream', {'image_id': image_id})
+                        'image_label_stream',
+                        {
+                            'image_id': image_id,
+                            'image_bucket_id': image_bucket_id,
+                            'image_name': image_name,
+                        }
+                    )
                 except RuntimeError as e:
                     logging.error(f"Error processing notification: {e}")
 

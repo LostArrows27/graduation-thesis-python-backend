@@ -13,11 +13,11 @@ class RedisService:
     def push_to_stream(self, stream_name: str, data: dict):
         self.client.xadd(stream_name, data)
 
-    def read_from_stream(self, stream_name: str, group_name: str, consumer_name: str, count: int = 1, block: int = 0):
+    def read_from_stream(self, stream_name: str, group_name: str, consumer_name: str, count: int = 1, block: int = 0, start_id='0'):
         return self.client.xreadgroup(
             groupname=group_name,
             consumername=consumer_name,
-            streams={stream_name: '>'},
+            streams={stream_name: start_id},
             count=count,
             block=block
         )
@@ -27,3 +27,18 @@ class RedisService:
 
     def update_hash(self, hash_name: str, data: dict):
         self.client.hset(hash_name, mapping=data)
+
+    def delete_stream_entry(self, stream_name, entry_id):
+        self.client.xdel(stream_name, entry_id)
+
+    def create_consumer_group(self, stream_name: str, group_name: str):
+        try:
+            self.client.xgroup_create(
+                stream_name, group_name, id='0', mkstream=True)
+
+        except redis.exceptions.ResponseError as e:
+            if "BUSYGROUP" in str(e):
+                # Consumer group already exists
+                pass
+            else:
+                raise e

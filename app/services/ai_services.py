@@ -1,11 +1,10 @@
 from app.models.model import AIModel
 from app.models.inference import AIInferenceService
 from app.services.supabase_service import SupabaseService
-from app.services.redis_service import RedisService
 
 
 class AIService:
-    def __init__(self, supabase_service: SupabaseService, redis_service=None):
+    def __init__(self, supabase_service: SupabaseService):
         self.model = AIModel()
         self.inference_service = AIInferenceService(
             self.model, supabase_service)
@@ -16,7 +15,6 @@ class AIService:
     def update_image_labels(self, image_id: str, labels: dict):
         response_data = self.inference_service.supabase_service.update_image_labels(
             image_id, labels)
-
         return response_data
 
 
