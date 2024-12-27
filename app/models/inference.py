@@ -83,7 +83,11 @@ class AIInferenceService:
                 }
             else:
                 results = {
-                    "labels": None
+                    "labels": {
+                        "location_labels": [],
+                        "action_labels": [],
+                        "event_labels": [],
+                    }
                 }
 
             return results
