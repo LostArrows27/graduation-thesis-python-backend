@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from app.services.redis_service import RedisService
 from app.tasks.db_listener import start_listener, stop_listener
 from app.services.ai_services import AIService, get_ai_service
 from app.services.supabase_service import SupabaseService
@@ -21,7 +22,8 @@ app.add_middleware(
 async def lifespan(app: FastAPI):
     app.state.supabase_service = SupabaseService()
     app.state.ai_service = AIService(app.state.supabase_service)
-    start_listener(app.state.ai_service)
+    app.state.redis_service = RedisService()
+    start_listener(app.state.redis_service)
     yield
     stop_listener()
 

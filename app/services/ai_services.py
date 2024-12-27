@@ -1,10 +1,11 @@
 from app.models.model import AIModel
 from app.models.inference import AIInferenceService
 from app.services.supabase_service import SupabaseService
+from app.services.redis_service import RedisService
 
 
 class AIService:
-    def __init__(self, supabase_service: SupabaseService):
+    def __init__(self, supabase_service: SupabaseService, redis_service=None):
         self.model = AIModel()
         self.inference_service = AIInferenceService(
             self.model, supabase_service)

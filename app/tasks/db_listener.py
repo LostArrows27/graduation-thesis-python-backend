@@ -4,7 +4,8 @@ import select
 import logging
 from threading import Thread
 from app.core.config import settings
-from app.services.ai_services import AIService
+from app.services.redis_service import RedisService
+
 logging.basicConfig(level=logging.INFO)
 
 conn_params = {
@@ -20,13 +21,13 @@ listener_thread = None
 stop_event = None
 
 
-def start_listener(ai_service: AIService):
+def start_listener(redis_service: RedisService):
     global listener_thread, stop_event
     if listener_thread is None:
         import threading
         stop_event = threading.Event()
         listener_thread = Thread(
-            target=listen_to_notifications, args=(ai_service,))
+            target=listen_to_notifications, args=(redis_service,))
         listener_thread.start()
 
 
@@ -38,7 +39,7 @@ def stop_listener():
         listener_thread = None
 
 
-def listen_to_notifications(ai_service: AIService):
+def listen_to_notifications(redis_service: RedisService):
     try:
         conn = psycopg2.connect(**conn_params)
         conn.set_isolation_level(
@@ -51,24 +52,18 @@ def listen_to_notifications(ai_service: AIService):
 
         while not stop_event.is_set():
             if select.select([conn], [], [], 1) == ([], [], []):
-                continue  # Timeout, check the stop flag again
+                continue  # timeout, check the stop flag again
             conn.poll()
             while conn.notifies:
                 notify = conn.notifies.pop(0)
                 logging.info(f"Received notification: {notify.payload}")
                 try:
-                    ai_service.inference_service
                     payload = json.loads(notify.payload)
-                    image_bucket_id = payload["image_bucket_id"]
-                    image_name = payload["image_name"]
                     image_id = payload["id"]
 
-                    # process image + update on database
-                    image_labels = ai_service.classify_image(
-                        image_bucket_id, image_name, image_id)
-
-                    ai_service.update_image_labels(image_id, image_labels)
-
+                    # add image_id to the stream
+                    redis_service.push_to_stream(
+                        'image_label_stream', {'image_id': image_id})
                 except RuntimeError as e:
                     logging.error(f"Error processing notification: {e}")
 
