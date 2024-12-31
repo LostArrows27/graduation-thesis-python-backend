@@ -73,36 +73,19 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
             f"Error processing image {image_id}: {e}")
 
 
-def process_label_job(ai_service: AIService, redis_service: RedisService, start_id='0'):
-    # Adjust the number of workers based on your machine's resources
-    with ThreadPoolExecutor(max_workers=16) as executor:
+def process_label_job(ai_service: AIService, redis_service: RedisService):
+    with ThreadPoolExecutor() as executor:
         while True:
             try:
-                # If processing old stream, check for pending messages
-                if start_id == '0':
-                    pending_info = redis_service.client.xpending(
-                        'image_label_stream', 'image_label_group'
-                    )
-
-                    # print(json.dumps(pending_info))
-                    if pending_info['pending'] == 0:
-                        logging.info(
-                            "No more old messages to process. Exiting old stream thread.")
-                        break  # Exit the thread when no pending messages are found
-
-                # Read messages from the stream
                 messages = redis_service.read_from_stream(
                     stream_name='image_label_stream',
                     group_name='image_label_group',
                     consumer_name='worker_1',
                     count=1,
                     block=0,
-                    start_id=start_id
+                    start_id='>'
                 )
 
-                print(messages)
-
-                # Submit tasks to the executor
                 for stream, entries in messages:
                     for entry_id, fields in entries:
                         executor.submit(process_message, ai_service,
@@ -110,3 +93,46 @@ def process_label_job(ai_service: AIService, redis_service: RedisService, start_
 
             except Exception as e:
                 logging.error(f"Error reading from Redis stream: {e}")
+
+
+def process_pending_label_job(ai_service: AIService, redis_service: RedisService):
+    while True:
+        try:
+            # Get pending messages
+            pending_info = redis_service.client.xpending(
+                'image_label_stream', 'image_label_group'
+            )
+
+            if pending_info['pending'] == 0:
+                logging.info(
+                    "No more pending messages in the stream. Stopping processing.")
+                break
+
+            # Get the list of pending messages
+            pending_messages = redis_service.client.xpending_range(
+                'image_label_stream', 'image_label_group', '-', '+', pending_info['pending']
+            )
+
+            for message in pending_messages:
+                entry_id = message['message_id']
+
+                # Read the message from the stream
+                messages = redis_service.client.xrange(
+                    'image_label_stream', min=entry_id, max=entry_id)
+
+                # Process each message
+                for message_data in messages:
+                    entry_id, fields = message_data
+                    print(f"Processing pending message: {entry_id}")
+                    print(f"Fields: {fields}")
+
+                    # Process the message (this will also handle ack_stream)
+                    process_message(ai_service, redis_service,
+                                    entry_id, fields)
+
+            # Exit after processing all pending messages
+            break
+
+        except Exception as e:
+            logging.error(f"Error processing pending messages: {e}")
+            break

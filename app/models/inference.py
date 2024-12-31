@@ -53,7 +53,7 @@ class AIInferenceService:
                 probs = (100.0 * image_features @
                          text_features.T).softmax(dim=-1)
                 labels_probs, labels_indices = torch.topk(probs[0], 2)
-                return [(labels[labels_indices[i].item()], labels_probs[i].item()) for i in range(2)]
+                return [{labels[labels_indices[i].item()]: labels_probs[i].item()}for i in range(2)]
         except Exception as e:
             raise RuntimeError(f"Error in get_top_labels: {e}")
 
