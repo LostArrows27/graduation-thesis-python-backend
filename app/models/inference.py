@@ -34,8 +34,8 @@ class AIInferenceService:
     def is_relate_image(self, image_url: str):
         try:
             image = self.model.preprocess(load_image_from_url(
-                image_url)).unsqueeze(0).to(CONFIG["device"])
-            with torch.no_grad():
+                image_url)).unsqueeze(0)
+            with torch.no_grad(), torch.amp.autocast('cuda'):
                 image_features = self.model.model.encode_image(image)
                 image_features /= image_features.norm(dim=-1, keepdim=True)
                 relate_probs = (100.0 * image_features @
@@ -49,7 +49,7 @@ class AIInferenceService:
 
     def get_top_labels(self, labels, text_features, image_features):
         try:
-            with torch.no_grad():
+            with torch.no_grad(), torch.amp.autocast('cuda'):
                 probs = (100.0 * image_features @
                          text_features.T).softmax(dim=-1)
                 labels_probs, labels_indices = torch.topk(probs[0], 2)

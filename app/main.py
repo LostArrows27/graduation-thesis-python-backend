@@ -34,19 +34,19 @@ async def lifespan(app: FastAPI):
     start_listener(app.state.redis_service)
 
     # 0 -> old stream
-    old_stream_redis_thread = threading.Thread(target=process_label_job, args=(
-        app.state.ai_service, app.state.redis_service, '0'))
+    # old_stream_redis_thread = threading.Thread(target=process_label_job, args=(
+    #     app.state.ai_service, app.state.redis_service, '0'))
 
     # > -> new stream
     new_stream_redis_thread = threading.Thread(target=process_label_job, args=(
         app.state.ai_service, app.state.redis_service, '>'))
 
-    old_stream_redis_thread.start()
+    # old_stream_redis_thread.start()
     new_stream_redis_thread.start()
 
     yield
     stop_listener()
-    old_stream_redis_thread.join()
+    # old_stream_redis_thread.join()
     new_stream_redis_thread.join()
 
 app = FastAPI(lifespan=lifespan)

@@ -31,6 +31,9 @@ class RedisService:
     def delete_stream_entry(self, stream_name, entry_id):
         self.client.xdel(stream_name, entry_id)
 
+    def set_ttl(self, key, ttl):
+        self.client.expire(key, ttl)
+
     def create_consumer_group(self, stream_name: str, group_name: str):
         try:
             self.client.xgroup_create(
