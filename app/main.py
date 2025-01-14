@@ -2,12 +2,13 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.services.redis_service import RedisService
+from app.tasks.check_db_on_startup import start_background_processor
 from app.tasks.db_listener import start_listener, stop_listener
 from app.services.ai_services import AIService, get_ai_service
 from app.services.supabase_service import SupabaseService
 import threading
 
-from app.tasks.redis_processor import process_label_job, process_pending_label_job
+from app.tasks.redis_processor import start_stream_processors, stop_stream_processors
 
 app = FastAPI()
 
@@ -20,7 +21,7 @@ app.add_middleware(
 )
 
 
-# dependency injection -> AI labeling service + Supabase service into -> bg_task
+# dependency injection -> AI labeling service + Supabase service into -> bg_tasks
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.supabase_service = SupabaseService()
@@ -31,23 +32,17 @@ async def lifespan(app: FastAPI):
     app.state.redis_service.create_consumer_group(
         'image_label_stream', 'image_label_group')
 
+    # start db not processed image processor
+    start_background_processor(
+        app.state.ai_service, app.state.supabase_service)
+    # start db change listener
     start_listener(app.state.redis_service)
-
-    # 0 -> old stream
-    old_stream_redis_thread = threading.Thread(target=process_pending_label_job, args=(
-        app.state.ai_service, app.state.redis_service))
-
-    # > -> new stream
-    new_stream_redis_thread = threading.Thread(target=process_label_job, args=(
-        app.state.ai_service, app.state.redis_service))
-
-    old_stream_redis_thread.start()
-    new_stream_redis_thread.start()
+    # start redis stream processors
+    start_stream_processors(app.state.ai_service, app.state.redis_service)
 
     yield
     stop_listener()
-    old_stream_redis_thread.join()
-    new_stream_redis_thread.join()
+    stop_stream_processors()
 
 app = FastAPI(lifespan=lifespan)
 

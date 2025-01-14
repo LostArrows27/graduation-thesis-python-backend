@@ -3,8 +3,13 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from app.services.ai_services import AIService
 from app.services.redis_service import RedisService
+import threading
 
 logging.basicConfig(level=logging.INFO)
+
+old_stream_thread = None
+new_stream_thread = None
+stop_event = threading.Event()  # Global stop event
 
 
 def process_message(ai_service: AIService, redis_service: RedisService, entry_id, fields):
@@ -41,11 +46,9 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
         )
 
         if response_data:
-            logging.info(
-                f"Labels for image {image_id} updated successfully")
+            logging.info(f"Labels for image {image_id} updated successfully")
         else:
-            raise Exception(
-                f"Error updating labels for image {image_id}")
+            raise Exception(f"Error updating labels for image {image_id}")
 
         # Update Redis hash with labels
         redis_service.update_hash(
@@ -69,13 +72,12 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
         logging.info(f"End processing {entry_id}")
 
     except Exception as e:
-        logging.error(
-            f"Error processing image {image_id}: {e}")
+        logging.error(f"Error processing image {image_id}: {e}")
 
 
 def process_label_job(ai_service: AIService, redis_service: RedisService):
     with ThreadPoolExecutor() as executor:
-        while True:
+        while not stop_event.is_set():  # Check stop event to gracefully exit
             try:
                 messages = redis_service.read_from_stream(
                     stream_name='image_label_stream',
@@ -96,7 +98,7 @@ def process_label_job(ai_service: AIService, redis_service: RedisService):
 
 
 def process_pending_label_job(ai_service: AIService, redis_service: RedisService):
-    while True:
+    while not stop_event.is_set():  # Check stop event to gracefully exit
         try:
             # Get pending messages
             pending_info = redis_service.client.xpending(
@@ -136,3 +138,33 @@ def process_pending_label_job(ai_service: AIService, redis_service: RedisService
         except Exception as e:
             logging.error(f"Error processing pending messages: {e}")
             break
+
+
+# Thread management functions
+def start_stream_processors(ai_service: AIService, redis_service: RedisService):
+    global old_stream_thread, new_stream_thread
+    if old_stream_thread is None and new_stream_thread is None:
+        # Start processing the streams in separate threads
+        old_stream_thread = threading.Thread(
+            target=process_pending_label_job, args=(ai_service, redis_service))
+        new_stream_thread = threading.Thread(
+            target=process_label_job, args=(ai_service, redis_service))
+
+        old_stream_thread.daemon = True
+        new_stream_thread.daemon = True
+
+        old_stream_thread.start()
+        new_stream_thread.start()
+
+
+def stop_stream_processors():
+    global old_stream_thread, new_stream_thread
+    stop_event.set()  # Set stop event to signal threads to stop
+
+    if old_stream_thread:
+        old_stream_thread.join()  # Wait for the old stream thread to finish
+        old_stream_thread = None
+
+    if new_stream_thread:
+        new_stream_thread.join()  # Wait for the new stream thread to finish
+        new_stream_thread = None

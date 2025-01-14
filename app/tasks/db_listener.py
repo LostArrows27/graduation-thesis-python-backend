@@ -1,4 +1,5 @@
 import json
+import threading
 import psycopg2
 import select
 import logging
@@ -24,10 +25,10 @@ stop_event = None
 def start_listener(redis_service: RedisService):
     global listener_thread, stop_event
     if listener_thread is None:
-        import threading
         stop_event = threading.Event()
         listener_thread = Thread(
             target=listen_to_notifications, args=(redis_service,))
+        listener_thread.daemon = True
         listener_thread.start()
 
 
