@@ -1,11 +1,10 @@
 import json
-import logging
 from concurrent.futures import ThreadPoolExecutor
+from app.libs.logger.log import log_error, log_info
 from app.services.ai_services import AIService
 from app.services.redis_service import RedisService
 import threading
 
-logging.basicConfig(level=logging.INFO)
 
 old_stream_thread = None
 new_stream_thread = None
@@ -20,7 +19,7 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
     print(f"Processing image {image_id}")
 
     try:
-        logging.info(f"Start processing {image_id}")
+        log_info(f"Start processing {image_id}")
 
         # Update Redis hash with job status (max 3 hours)
         redis_service.update_hash(
@@ -46,7 +45,7 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
         )
 
         if response_data:
-            logging.info(f"Labels for image {image_id} updated successfully")
+            log_info(f"Labels for image {image_id} updated successfully")
         else:
             raise Exception(f"Error updating labels for image {image_id}")
 
@@ -69,10 +68,10 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
             'image_label_stream', entry_id
         )
 
-        logging.info(f"End processing {entry_id}")
+        log_info(f"End processing {entry_id}")
 
     except Exception as e:
-        logging.error(f"Error processing image {image_id}: {e}")
+        log_error(f"Error processing image {image_id}: {e}")
 
 
 def process_label_job(ai_service: AIService, redis_service: RedisService):
@@ -94,7 +93,7 @@ def process_label_job(ai_service: AIService, redis_service: RedisService):
                                         redis_service, entry_id, fields)
 
             except Exception as e:
-                logging.error(f"Error reading from Redis stream: {e}")
+                log_error(f"Error reading from Redis stream: {e}")
 
 
 def process_pending_label_job(ai_service: AIService, redis_service: RedisService):
@@ -106,7 +105,7 @@ def process_pending_label_job(ai_service: AIService, redis_service: RedisService
             )
 
             if pending_info['pending'] == 0:
-                logging.info(
+                log_info(
                     "No more pending messages in the stream. Stopping processing.")
                 break
 
@@ -136,7 +135,7 @@ def process_pending_label_job(ai_service: AIService, redis_service: RedisService
             break
 
         except Exception as e:
-            logging.error(f"Error processing pending messages: {e}")
+            log_error(f"Error processing pending messages: {e}")
             break
 
 

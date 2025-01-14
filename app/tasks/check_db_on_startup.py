@@ -1,9 +1,8 @@
-import logging
 import threading
+from app.libs.logger.log import log_error, log_info
 from app.services.ai_services import AIService
 from app.services.supabase_service import SupabaseService
 
-logging.basicConfig(level=logging.INFO)
 
 thread = None
 
@@ -16,14 +15,14 @@ def process_unlabeled_images(ai_service: AIService, supabase_service: SupabaseSe
         unlabeled_images = supabase_service.client.table(
             'image_meta_data').select('*').is_('labels', None).execute().data
 
-        logging.info(f"Found {len(unlabeled_images)} unlabeled images !")
+        log_info(f"Found {len(unlabeled_images)} unlabeled images !")
 
         for image in unlabeled_images:
             image_id = image['id']
             image_bucket_id = image['image_bucket_id']
             image_name = image['image_name']
 
-            logging.info(f"Processing unlabeled image {image_id}")
+            log_info(f"Processing unlabeled image {image_id}")
 
             # Classify the image
             image_labels = ai_service.classify_image(
@@ -34,13 +33,13 @@ def process_unlabeled_images(ai_service: AIService, supabase_service: SupabaseSe
                 image_id, image_labels)
 
             if response_data:
-                logging.info(
+                log_info(
                     f"Labels for image {image_id} updated successfully.")
             else:
                 raise Exception(f"Error updating labels for image {image_id}")
 
     except Exception as e:
-        logging.error(f"Error processing unlabeled images: {e}")
+        log_error(f"Error processing unlabeled images: {e}")
 
 
 def start_background_processor(ai_service: AIService, supabase_service: SupabaseService):

@@ -2,12 +2,11 @@ import json
 import threading
 import psycopg2
 import select
-import logging
 from threading import Thread
 from app.core.config import settings
+from app.libs.logger.log import log_error, log_info
 from app.services.redis_service import RedisService
 
-logging.basicConfig(level=logging.INFO)
 
 conn_params = {
     'dbname': settings.db_name,
@@ -48,7 +47,7 @@ def listen_to_notifications(redis_service: RedisService):
         cursor = conn.cursor()
 
         cursor.execute("LISTEN image_meta_data_insert;")
-        logging.info(
+        log_info(
             "Listening for insert events on public.image_meta_data...")
 
         while not stop_event.is_set():
@@ -57,7 +56,7 @@ def listen_to_notifications(redis_service: RedisService):
             conn.poll()
             while conn.notifies:
                 notify = conn.notifies.pop(0)
-                logging.info(f"Received notification: {notify.payload}")
+                log_info(f"Received notification: {notify.payload}")
                 try:
                     payload = json.loads(notify.payload)
                     image_id = payload["id"]
@@ -74,12 +73,12 @@ def listen_to_notifications(redis_service: RedisService):
                         }
                     )
                 except RuntimeError as e:
-                    logging.error(f"Error processing notification: {e}")
+                    log_error(f"Error processing notification: {e}")
 
     except Exception as e:
-        logging.error(f"Database listener error: {e}")
+        log_error(f"Database listener error: {e}")
     finally:
         if conn:
             cursor.close()
             conn.close()
-            logging.info("Database listener stopped.")
+            log_info("Database listener stopped.")

@@ -1,6 +1,6 @@
-import logging
 import torch
 from collections import defaultdict
+from app.libs.logger.log import log_info
 from app.models.preprocess import load_features_parallel, load_labels_parallel, read_grouped_items, load_filter_items
 from app.models.config import CONFIG
 from app.services.supabase_service import SupabaseService
@@ -64,7 +64,7 @@ class AIInferenceService:
             image_url = self.supabase_service.get_image_public_url(
                 image_bucket_id, image_name)
 
-            logging.info(f"Classifying image: {image_url}")
+            log_info(f"Classifying image: {image_url}")
 
             is_relate, image_features = self.is_relate_image(image_url)
             if is_relate:
