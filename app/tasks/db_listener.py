@@ -48,7 +48,7 @@ def listen_to_notifications(redis_service: RedisService):
 
         cursor.execute("LISTEN image_meta_data_insert;")
         log_info(
-            "Listening for insert events on public.image_meta_data...")
+            "Listening for insert events on public.image...")
 
         while not stop_event.is_set():
             if select.select([conn], [], [], 1) == ([], [], []):
@@ -56,9 +56,9 @@ def listen_to_notifications(redis_service: RedisService):
             conn.poll()
             while conn.notifies:
                 notify = conn.notifies.pop(0)
-                log_info(f"Received notification: {notify.payload}")
                 try:
                     payload = json.loads(notify.payload)
+                    log_info(f"Received image id: {payload['id']}")
                     image_id = payload["id"]
                     image_bucket_id = payload["image_bucket_id"]
                     image_name = payload["image_name"]

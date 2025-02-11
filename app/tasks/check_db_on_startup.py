@@ -13,7 +13,7 @@ thread = None
 def process_unlabeled_images(ai_service: AIService, supabase_service: SupabaseService):
     try:
         unlabeled_images = supabase_service.client.table(
-            'image_meta_data').select('*').is_('labels', None).execute().data
+            'image').select('*').is_('labels', None).execute().data
 
         log_info(f"Found {len(unlabeled_images)} unlabeled images !")
 

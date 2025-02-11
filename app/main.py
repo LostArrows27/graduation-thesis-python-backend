@@ -6,8 +6,17 @@ from app.tasks.check_db_on_startup import start_background_processor
 from app.tasks.db_listener import start_listener, stop_listener
 from app.services.ai_services import AIService, get_ai_service
 from app.services.supabase_service import SupabaseService
-
 from app.tasks.redis_processor import start_stream_processors, stop_stream_processors
+from dotenv import load_dotenv
+from app.core.config import settings
+from app.libs.logger.log import log_info
+
+
+def reload_env():
+    """Reload environment variables"""
+    load_dotenv(override=True)
+    
+reload_env()
 
 app = FastAPI()
 

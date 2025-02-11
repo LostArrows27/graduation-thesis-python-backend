@@ -9,12 +9,12 @@ class SupabaseService:
             settings.supabase_url, settings.supabase_key)
 
     def get_image_metadata(self, image_id: str):
-        response = self.client.table('image_meta_data').select(
+        response = self.client.table('image').select(
             '*').eq('id', image_id).execute()
         return response.data
 
     def update_image_labels(self, image_id: str, labels: dict):
-        response = self.client.table('image_meta_data').update(
+        response = self.client.table('image').update(
             labels).eq('id', image_id).execute()
         return response.data
 
