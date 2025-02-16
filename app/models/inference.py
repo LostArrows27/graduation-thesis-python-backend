@@ -64,7 +64,7 @@ class AIInferenceService:
             image_url = self.supabase_service.get_image_public_url(
                 image_bucket_id, image_name)
 
-            log_info(f"Classifying image: {image_url}")
+            log_info(f"Classifying image: {image_name}")
 
             is_relate, image_features = self.is_relate_image(image_url)
             if is_relate:
@@ -90,6 +90,6 @@ class AIInferenceService:
                     }
                 }
 
-            return results
+            return results, image_features;
         except RuntimeError as e:
             raise RuntimeError(f"Error in classify_image: {e}")

@@ -5,6 +5,8 @@ from app.services.ai_services import AIService
 from app.services.redis_service import RedisService
 import threading
 
+from app.services.supabase_service import SupabaseService
+
 
 old_stream_thread = None
 new_stream_thread = None
@@ -15,8 +17,6 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
     image_id = fields['image_id']
     image_bucket_id = fields['image_bucket_id']
     image_name = fields['image_name']
-
-    print(f"Processing image {image_id}")
 
     try:
         log_info(f"Start processing {image_id}")
@@ -33,18 +33,19 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
 
         redis_service.set_ttl(f"image_job:{image_id}", 10800)
 
-        # Label the image
-        image_labels = ai_service.classify_image(
-            fields["image_bucket_id"],
-            fields["image_name"],
-            image_id
-        )
+        image_bucket_id = fields["image_bucket_id"]
+        image_name = fields["image_name"]
 
-        response_data = ai_service.update_image_labels(
-            image_id, image_labels
-        )
+        # get labels and features
+        image_labels, image_features = ai_service.classify_image(
+            image_bucket_id, image_name, image_id=None)
 
-        if response_data:
+        # Save labels and features to Supabase
+        supabase_service: SupabaseService = ai_service.inference_service.supabase_service
+        image_row = supabase_service.save_image_features_and_labels(
+            image_bucket_id, image_name, image_labels, image_features.squeeze(0).tolist())
+
+        if image_row:
             log_info(f"Labels for image {image_id} updated successfully")
         else:
             raise Exception(f"Error updating labels for image {image_id}")
@@ -124,8 +125,8 @@ def process_pending_label_job(ai_service: AIService, redis_service: RedisService
                 # Process each message
                 for message_data in messages:
                     entry_id, fields = message_data
-                    print(f"Processing pending message: {entry_id}")
-                    print(f"Fields: {fields}")
+                    log_info(f"Processing pending message: {entry_id}")
+                    log_info(f"Fields: {fields}")
 
                     # Process the message (this will also handle ack_stream)
                     process_message(ai_service, redis_service,

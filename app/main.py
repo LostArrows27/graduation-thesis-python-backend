@@ -8,14 +8,14 @@ from app.services.ai_services import AIService, get_ai_service
 from app.services.supabase_service import SupabaseService
 from app.tasks.redis_processor import start_stream_processors, stop_stream_processors
 from dotenv import load_dotenv
-from app.core.config import settings
-from app.libs.logger.log import log_info
+from pydantic import BaseModel
 
 
 def reload_env():
     """Reload environment variables"""
     load_dotenv(override=True)
-    
+
+
 reload_env()
 
 app = FastAPI()
@@ -63,6 +63,24 @@ def get_supabase_service(request: Request) -> SupabaseService:
     return request.app.state.supabase_service
 
 
-@app.post("/upload")
-def upload_image(filename: str, service: AIService = Depends(get_ai_service)):
-    return service.classify_image(filename)
+class ImageRequest(BaseModel):
+    image_bucket_id: str
+    image_name: str
+
+
+@app.post("/classify-image")
+def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_service)):
+    try:
+        results, image_features = service.classify_image(
+            request.image_bucket_id, request.image_name, image_id=None)
+
+        supabase_service: SupabaseService = service.inference_service.supabase_service
+        image_row = supabase_service.save_image_features_and_labels(
+            request.image_bucket_id, request.image_name, results, image_features.squeeze(0).tolist())
+
+        # remove image_features from response
+        image_row.pop('image_features')
+
+        return {"status": "success", "data": image_row}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

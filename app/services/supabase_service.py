@@ -1,4 +1,5 @@
 from supabase import create_client, Client
+import torch
 from app.core.config import settings
 
 
@@ -20,6 +21,13 @@ class SupabaseService:
 
     def get_image_public_url(self, image_bucket_id: str, image_name: str):
         return self.client.storage.from_(image_bucket_id).get_public_url(image_name)
+
+    def save_image_features_and_labels(self, image_bucket_id: str, image_name: str, labels: dict, image_features: torch.Tensor):
+        response = self.client.table('image').update({
+            'labels': labels,
+            'image_features': image_features
+        }).eq('image_bucket_id', image_bucket_id).eq('image_name', image_name).execute()
+        return response.data[0]
 
 
 def get_supabase_service():

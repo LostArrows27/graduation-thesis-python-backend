@@ -25,7 +25,7 @@ def process_unlabeled_images(ai_service: AIService, supabase_service: SupabaseSe
             log_info(f"Processing unlabeled image {image_id}")
 
             # Classify the image
-            image_labels = ai_service.classify_image(
+            image_labels, _ = ai_service.classify_image(
                 image_bucket_id, image_name, image_id)
 
             # Update the image labels
