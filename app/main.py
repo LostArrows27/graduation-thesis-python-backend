@@ -1,6 +1,9 @@
+import asyncio
+from typing import List
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from app.libs.logger.log import log_error
 from app.services.redis_service import RedisService
 from app.tasks.check_db_on_startup import start_background_processor
 from app.tasks.db_listener import start_listener, stop_listener
@@ -68,7 +71,11 @@ class ImageRequest(BaseModel):
     image_name: str
 
 
-@app.post("/classify-image")
+class ImageBatchRequest(BaseModel):
+    data: List[ImageRequest]
+
+
+@app.post("/api/classify-image")
 def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_service)):
     try:
         results, image_features = service.classify_image(
@@ -84,3 +91,27 @@ def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_se
         return {"status": "success", "data": image_row}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/classify-images")
+async def classify_images(request: ImageBatchRequest, service: AIService = Depends(get_ai_service)):
+    if len(request.data) > 3:
+        return {"status": "error", "message": "Only up to 3 images are allowed."}
+
+    async def process_image(image_request: ImageRequest):
+        try:
+            results, image_features = service.classify_image(
+                image_request.image_bucket_id, image_request.image_name, image_id=None)
+            supabase_service: SupabaseService = service.inference_service.supabase_service
+            image_row = supabase_service.save_image_features_and_labels(
+                image_request.image_bucket_id, image_request.image_name, results, image_features.squeeze(0).tolist())
+            image_row.pop('image_features')
+            return image_row
+        except Exception as e:
+            log_error(e)
+            return None
+
+    tasks = [process_image(img_req) for img_req in request.data]
+    image_rows = await asyncio.gather(*tasks)
+
+    return {"status": "success", "data": image_rows}

@@ -43,7 +43,7 @@ class AIInferenceService:
             _, top_index = torch.topk(relate_probs[0], 1)
             is_relate = self.location_filter_labels[top_index.item(
             )]["is_relate"]
-            return is_relate, image_features if is_relate else None
+            return is_relate, image_features
         except RuntimeError as e:
             raise RuntimeError(f"Error in is_relate_image: {e}")
 
@@ -90,6 +90,6 @@ class AIInferenceService:
                     }
                 }
 
-            return results, image_features;
+            return results, image_features
         except RuntimeError as e:
             raise RuntimeError(f"Error in classify_image: {e}")
