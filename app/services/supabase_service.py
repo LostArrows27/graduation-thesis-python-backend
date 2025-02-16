@@ -1,3 +1,4 @@
+import datetime
 from supabase import create_client, Client
 import torch
 from app.core.config import settings
@@ -24,8 +25,9 @@ class SupabaseService:
 
     def save_image_features_and_labels(self, image_bucket_id: str, image_name: str, labels: dict, image_features: torch.Tensor):
         response = self.client.table('image').update({
+            "updated_at": datetime.datetime.now().isoformat(),
             'labels': labels,
-            'image_features': image_features
+            'image_features': image_features,
         }).eq('image_bucket_id', image_bucket_id).eq('image_name', image_name).execute()
         return response.data[0]
 

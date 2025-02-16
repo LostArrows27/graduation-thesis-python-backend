@@ -19,7 +19,7 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
     image_name = fields['image_name']
 
     try:
-        log_info(f"Start processing {image_id}")
+        log_info(f"Start processing {image_name}")
 
         # Update Redis hash with job status (max 3 hours)
         redis_service.update_hash(
@@ -46,9 +46,9 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
             image_bucket_id, image_name, image_labels, image_features.squeeze(0).tolist())
 
         if image_row:
-            log_info(f"Labels for image {image_id} updated successfully")
+            log_info(f"Labels for image {image_name} updated successfully")
         else:
-            raise Exception(f"Error updating labels for image {image_id}")
+            raise Exception(f"Error updating labels for image {image_name}")
 
         # Update Redis hash with labels
         redis_service.update_hash(

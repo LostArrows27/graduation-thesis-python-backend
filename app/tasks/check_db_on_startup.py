@@ -22,21 +22,22 @@ def process_unlabeled_images(ai_service: AIService, supabase_service: SupabaseSe
             image_bucket_id = image['image_bucket_id']
             image_name = image['image_name']
 
-            log_info(f"Processing unlabeled image {image_id}")
+            log_info(f"Processing unlabeled image {image_name}")
 
-            # Classify the image
-            image_labels, _ = ai_service.classify_image(
-                image_bucket_id, image_name, image_id)
+            # get labels and features
+            image_labels, image_features = ai_service.classify_image(
+                image_bucket_id, image_name, image_id=None)
 
-            # Update the image labels
-            response_data = ai_service.update_image_labels(
-                image_id, image_labels)
+            # Save labels and features to Supabase
+            supabase_service: SupabaseService = ai_service.inference_service.supabase_service
+            image_row = supabase_service.save_image_features_and_labels(
+                image_bucket_id, image_name, image_labels, image_features.squeeze(0).tolist())
 
-            if response_data:
-                log_info(
-                    f"Labels for image {image_id} updated successfully.")
+            if image_row:
+                log_info(f"Labels for image {image_name} updated successfully")
             else:
-                raise Exception(f"Error updating labels for image {image_id}")
+                raise Exception(
+                    f"Error updating labels for image {image_name}")
 
     except Exception as e:
         log_error(f"Error processing unlabeled images: {e}")
