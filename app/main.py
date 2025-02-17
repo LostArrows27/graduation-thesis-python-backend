@@ -69,21 +69,32 @@ def get_supabase_service(request: Request) -> SupabaseService:
 class ImageRequest(BaseModel):
     image_bucket_id: str
     image_name: str
+    user_id: str
+
+
+class ImageList(BaseModel):
+    image_bucket_id: str
+    image_name: str
 
 
 class ImageBatchRequest(BaseModel):
-    data: List[ImageRequest]
+    user_id: str
+    data: List[ImageList]
 
 
 @app.post("/api/classify-image")
 def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_service)):
+    # check user id
+    if request.user_id == '' or request.user_id is None:
+        return {"status": "error", "message": "User id is required."}
+
     try:
         results, image_features = service.classify_image(
             request.image_bucket_id, request.image_name, image_id=None)
 
         supabase_service: SupabaseService = service.inference_service.supabase_service
         image_row = supabase_service.save_image_features_and_labels(
-            request.image_bucket_id, request.image_name, results, image_features.squeeze(0).tolist())
+            request.image_bucket_id, request.image_name, results, image_features.squeeze(0).tolist(), user_id=request.user_id)
 
         # remove image_features from response
         image_row.pop('image_features')
@@ -98,13 +109,17 @@ async def classify_images(request: ImageBatchRequest, service: AIService = Depen
     if len(request.data) > 3:
         return {"status": "error", "message": "Only up to 3 images are allowed."}
 
+    # check user id
+    if request.user_id == '' or request.user_id is None:
+        return {"status": "error", "message": "User id is required."}
+
     async def process_image(image_request: ImageRequest):
         try:
             results, image_features = service.classify_image(
                 image_request.image_bucket_id, image_request.image_name, image_id=None)
             supabase_service: SupabaseService = service.inference_service.supabase_service
             image_row = supabase_service.save_image_features_and_labels(
-                image_request.image_bucket_id, image_request.image_name, results, image_features.squeeze(0).tolist())
+                image_request.image_bucket_id, image_request.image_name, results, image_features.squeeze(0).tolist(), user_id=request.user_id)
             image_row.pop('image_features')
             return image_row
         except Exception as e:
@@ -115,3 +130,10 @@ async def classify_images(request: ImageBatchRequest, service: AIService = Depen
     image_rows = await asyncio.gather(*tasks)
 
     return {"status": "success", "data": image_rows}
+
+# hello world test endpoint
+
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
