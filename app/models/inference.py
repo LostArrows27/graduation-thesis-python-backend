@@ -75,19 +75,15 @@ class AIInferenceService:
                 event_labels = self.get_top_labels(
                     self.event_labels, self.event_text_features, image_features)
                 results = {
-                    "labels": {
-                        "location_labels": location_labels,
-                        "action_labels": action_labels,
-                        "event_labels": event_labels,
-                    }
+                    "location_labels": location_labels,
+                    "action_labels": action_labels,
+                    "event_labels": event_labels,
                 }
             else:
                 results = {
-                    "labels": {
-                        "location_labels": [],
-                        "action_labels": [],
-                        "event_labels": [],
-                    }
+                    "location_labels": [],
+                    "action_labels": [],
+                    "event_labels": [],
                 }
 
             return results, image_features
