@@ -12,6 +12,11 @@ from app.services.supabase_service import SupabaseService
 from app.tasks.redis_processor import start_stream_processors, stop_stream_processors
 from dotenv import load_dotenv
 from pydantic import BaseModel
+import os
+
+from app.utils import process_image_concurrently
+
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 
 def reload_env():
@@ -46,14 +51,14 @@ async def lifespan(app: FastAPI):
     # start db not processed image processor
     start_background_processor(
         app.state.ai_service, app.state.supabase_service)
-    # start db change listener
-    start_listener(app.state.redis_service)
-    # start redis stream processors
-    start_stream_processors(app.state.ai_service, app.state.redis_service)
+    # # start db change listener
+    # start_listener(app.state.redis_service)
+    # # start redis stream processors
+    # start_stream_processors(app.state.ai_service, app.state.redis_service)
 
     yield
     stop_listener()
-    stop_stream_processors()
+    # stop_stream_processors()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -89,12 +94,15 @@ def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_se
         return {"status": "error", "message": "User id is required."}
 
     try:
-        results, image_features = service.classify_image(
-            request.image_bucket_id, request.image_name, image_id=None)
+        image_url = service.inference_service.supabase_service.get_image_public_url(
+            request.image_bucket_id, request.image_name)
+
+        results, image_features, description = process_image_concurrently(
+            service, request.image_bucket_id, request.image_name, image_url)
 
         supabase_service: SupabaseService = service.inference_service.supabase_service
         image_row = supabase_service.save_image_features_and_labels(
-            request.image_bucket_id, request.image_name, results, image_features.squeeze(0).tolist(), user_id=request.user_id)
+            request.image_bucket_id, request.image_name, results, image_features.squeeze(0).tolist(), description, user_id=request.user_id)
 
         # remove image_features from response
         image_row.pop('image_features')
@@ -115,11 +123,15 @@ async def classify_images(request: ImageBatchRequest, service: AIService = Depen
 
     async def process_image(image_request: ImageRequest):
         try:
-            results, image_features = service.classify_image(
-                image_request.image_bucket_id, image_request.image_name, image_id=None)
+            image_url = service.inference_service.supabase_service.get_image_public_url(
+                image_request.image_bucket_id, image_request.image_name)
+
+            results, image_features, description = process_image_concurrently(
+                service, request.image_bucket_id, request.image_name, image_url)
+
             supabase_service: SupabaseService = service.inference_service.supabase_service
             image_row = supabase_service.save_image_features_and_labels(
-                image_request.image_bucket_id, image_request.image_name, results, image_features.squeeze(0).tolist(), user_id=request.user_id)
+                image_request.image_bucket_id, image_request.image_name, results, image_features.squeeze(0).tolist(), description, user_id=request.user_id)
             image_row.pop('image_features')
             return image_row
         except Exception as e:
@@ -130,7 +142,6 @@ async def classify_images(request: ImageBatchRequest, service: AIService = Depen
     image_rows = await asyncio.gather(*tasks)
 
     return {"status": "success", "data": image_rows}
-
 # hello world test endpoint
 
 

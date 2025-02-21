@@ -6,6 +6,7 @@ from app.services.redis_service import RedisService
 import threading
 
 from app.services.supabase_service import SupabaseService
+from app.utils import process_image_concurrently
 
 
 old_stream_thread = None
@@ -36,14 +37,16 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
         image_bucket_id = fields["image_bucket_id"]
         image_name = fields["image_name"]
 
-        # get labels and features
-        image_labels, image_features = ai_service.classify_image(
-            image_bucket_id, image_name, image_id=None)
+        image_url = ai_service.inference_service.supabase_service.get_image_public_url(
+            image_bucket_id, image_name)
 
-        # Save labels and features to Supabase
+        image_labels, image_features, description = process_image_concurrently(
+            ai_service, image_bucket_id, image_name, image_url)
+
+        # Save labels, features, and description to Supabase
         supabase_service: SupabaseService = ai_service.inference_service.supabase_service
         image_row = supabase_service.save_image_features_and_labels(
-            image_bucket_id, image_name, image_labels, image_features.squeeze(0).tolist())
+            image_bucket_id, image_name, image_labels, image_features.squeeze(0).tolist(), description)
 
         if image_row:
             log_info(f"Labels for image {image_name} updated successfully")

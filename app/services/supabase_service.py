@@ -23,12 +23,13 @@ class SupabaseService:
     def get_image_public_url(self, image_bucket_id: str, image_name: str):
         return self.client.storage.from_(image_bucket_id).get_public_url(image_name)
 
-    def save_image_features_and_labels(self, image_bucket_id: str, image_name: str, labels: dict, image_features: torch.Tensor, user_id: str = ''):
+    def save_image_features_and_labels(self, image_bucket_id: str, image_name: str, labels: dict, image_features: torch.Tensor, description: str,  user_id: str = ''):
         if (user_id == '' or user_id is None):
             response = self.client.table('image').update({
                 "updated_at": datetime.datetime.now().isoformat(),
                 'labels': labels,
                 'image_features': image_features,
+                'description': description
             }).eq('image_bucket_id', image_bucket_id).eq('image_name', image_name).execute()
             return response.data[0]
         else:
@@ -36,7 +37,8 @@ class SupabaseService:
                 "updated_at": datetime.datetime.now().isoformat(),
                 'labels': labels,
                 'image_features': image_features,
-                'uploader_id': user_id
+                'uploader_id': user_id,
+                'description': description
             }).eq('image_bucket_id', image_bucket_id).eq('image_name', image_name).execute()
             return response.data[0]
 
