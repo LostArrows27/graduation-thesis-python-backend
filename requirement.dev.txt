@@ -1,0 +1,9 @@
+pydantic
+pydantic_settings
+fastapi
+dotenv
+uvicorn
+open_clip_torch
+redis
+supabase
+psycopg2

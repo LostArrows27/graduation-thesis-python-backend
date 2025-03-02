@@ -58,20 +58,25 @@ def listen_to_notifications(redis_service: RedisService):
                 notify = conn.notifies.pop(0)
                 try:
                     payload = json.loads(notify.payload)
-                    log_info(f"Received image id: {payload['id']}")
                     image_id = payload["id"]
                     image_bucket_id = payload["image_bucket_id"]
                     image_name = payload["image_name"]
+                    labels = payload["labels"]
+                    log_info(f"[DB] Received image from: {image_name}")
 
-                    # add image_id to the stream
-                    redis_service.push_to_stream(
-                        'image_label_stream',
-                        {
-                            'image_id': image_id,
-                            'image_bucket_id': image_bucket_id,
-                            'image_name': image_name,
-                        }
-                    )
+                    # labels null / not null -> flag to distinguish the process
+                    # db listener -> only new image insert to the db without labels
+                    # endpoint -> classify image with labels not null -> update image labels
+                    if labels is None:
+                        # add image_id to the stream
+                        redis_service.push_to_stream(
+                            'image_label_stream',
+                            {
+                                'image_id': image_id,
+                                'image_bucket_id': image_bucket_id,
+                                'image_name': image_name,
+                            }
+                        )
                 except RuntimeError as e:
                     log_error(f"Error processing notification: {e}")
 

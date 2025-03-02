@@ -30,13 +30,13 @@ def process_unlabeled_images(ai_service: AIService, supabase_service: SupabaseSe
                 image_bucket_id, image_name)
 
             # Get labels, features, and description concurrently
-            image_labels, image_features, description = process_image_concurrently(
+            image_labels, image_features = process_image_concurrently(
                 ai_service, image_bucket_id, image_name, image_url)
 
             # Save labels, features, and description to Supabase
             supabase_service: SupabaseService = ai_service.inference_service.supabase_service
             image_row = supabase_service.save_image_features_and_labels(
-                image_bucket_id, image_name, image_labels, image_features.squeeze(0).tolist(), description)
+                image_bucket_id, image_name, image_labels, image_features.squeeze(0).tolist())
 
             if image_row:
                 log_info(f"Labels for image {image_name} updated successfully")

@@ -13,8 +13,7 @@ from app.tasks.redis_processor import start_stream_processors, stop_stream_proce
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
-
-from app.utils import process_image_concurrently
+import traceback
 
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
@@ -51,14 +50,14 @@ async def lifespan(app: FastAPI):
     # start db not processed image processor
     start_background_processor(
         app.state.ai_service, app.state.supabase_service)
-    # # start db change listener
-    # start_listener(app.state.redis_service)
-    # # start redis stream processors
-    # start_stream_processors(app.state.ai_service, app.state.redis_service)
+    # start db change listener
+    start_listener(app.state.redis_service)
+    # start redis stream processors
+    start_stream_processors(app.state.ai_service, app.state.redis_service)
 
     yield
     stop_listener()
-    # stop_stream_processors()
+    stop_stream_processors()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -97,12 +96,12 @@ def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_se
         image_url = service.inference_service.supabase_service.get_image_public_url(
             request.image_bucket_id, request.image_name)
 
-        results, image_features, description = process_image_concurrently(
-            service, request.image_bucket_id, request.image_name, image_url)
+        results, image_features = service.classify_image(
+            request.image_bucket_id, request.image_name, image_url)
 
         supabase_service: SupabaseService = service.inference_service.supabase_service
         image_row = supabase_service.save_image_features_and_labels(
-            request.image_bucket_id, request.image_name, results, image_features.squeeze(0).tolist(), description, user_id=request.user_id)
+            request.image_bucket_id, request.image_name, results, image_features.squeeze(0).tolist(), user_id=request.user_id)
 
         # remove image_features from response
         image_row.pop('image_features')
@@ -114,8 +113,8 @@ def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_se
 
 @app.post("/api/classify-images")
 async def classify_images(request: ImageBatchRequest, service: AIService = Depends(get_ai_service)):
-    if len(request.data) > 3:
-        return {"status": "error", "message": "Only up to 3 images are allowed."}
+    # if len(request.data) > 3:
+    #     return {"status": "error", "message": "Only up to 3 images are allowed."}
 
     # check user id
     if request.user_id == '' or request.user_id is None:
@@ -126,22 +125,28 @@ async def classify_images(request: ImageBatchRequest, service: AIService = Depen
             image_url = service.inference_service.supabase_service.get_image_public_url(
                 image_request.image_bucket_id, image_request.image_name)
 
-            results, image_features, description = process_image_concurrently(
-                service, request.image_bucket_id, request.image_name, image_url)
+            results, image_features = service.classify_image(
+                image_request.image_bucket_id, image_request.image_name, image_url)
 
             supabase_service: SupabaseService = service.inference_service.supabase_service
             image_row = supabase_service.save_image_features_and_labels(
-                image_request.image_bucket_id, image_request.image_name, results, image_features.squeeze(0).tolist(), description, user_id=request.user_id)
+                image_request.image_bucket_id, image_request.image_name, results, image_features.squeeze(0).tolist(), user_id=request.user_id)
             image_row.pop('image_features')
             return image_row
         except Exception as e:
             log_error(e)
-            return None
+            log_error(f"Error at API endpoint: {e}\n{traceback.format_exc()}")
+            #  throw error to the caller
+            raise Exception(e)
 
-    tasks = [process_image(img_req) for img_req in request.data]
-    image_rows = await asyncio.gather(*tasks)
-
+    try:
+        tasks = [process_image(img_req) for img_req in request.data]
+        image_rows = await asyncio.gather(*tasks)
+    except Exception as e:
+        # add statuscode 500
+        return {"status": "error", "message": str(e)}
     return {"status": "success", "data": image_rows}
+
 # hello world test endpoint
 
 

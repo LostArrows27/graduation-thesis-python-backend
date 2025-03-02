@@ -46,8 +46,6 @@ Conference
 Lecture
 School Day
 *Seasonal and Nature*
-Morning
-Evening
 Spring
 Summer
 Autumn
