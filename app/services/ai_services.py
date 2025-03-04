@@ -1,3 +1,4 @@
+from io import BytesIO
 from app.models.model import AIModel, FaceCategoryModel
 from app.models.inference import AIInferenceService
 from app.services.supabase_service import SupabaseService
@@ -17,6 +18,9 @@ class AIService:
         response_data = self.inference_service.supabase_service.update_image_labels(
             image_id, labels)
         return response_data
+
+    def category_image_face(self, image_url: str):
+        return self.inference_service.category_face(image_url)
 
 
 def get_ai_service(supabase_service: SupabaseService):

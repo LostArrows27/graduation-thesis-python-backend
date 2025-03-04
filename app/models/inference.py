@@ -43,7 +43,6 @@ class AIInferenceService:
                 image_file)
             return face_locations, face_encoding
         except Exception as e:
-            log_error(e)
             log_error(
                 f"Error category face: {e}\n{traceback.format_exc()}")
 

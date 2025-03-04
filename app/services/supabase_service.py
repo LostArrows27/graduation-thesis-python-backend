@@ -1,7 +1,10 @@
 import datetime
+import traceback
+import numpy as np
 from supabase import create_client, Client
 import torch
 from app.core.config import settings
+from app.libs.logger.log import log_error, log_info
 
 
 class SupabaseService:
@@ -38,6 +41,33 @@ class SupabaseService:
                 'uploader_id': user_id,
             }).eq('image_bucket_id', image_bucket_id).eq('image_name', image_name).execute()
             return response.data[0]
+
+    def mark_image_done_face_detection(self, image_id: str):
+        return self.client.table('image').update({
+            "is_face_detection": True
+        }).eq('id', image_id).execute()
+
+    def update_person_table(self, face_encodings, face_locations, image_id, user_id, image_name):
+        if len(face_locations) == 0 or len(face_encodings) == 0:
+            log_info(f"No face found in image: {image_name}")
+            return
+
+        log_info(
+            f"Found {len(face_locations)} faces in image: {image_name}")
+        records = []
+        for encoding, location in zip(face_encodings, face_locations):
+            records.append({
+                'embedding': np.array(encoding).tolist(),
+                'coordinate': location,
+                'image_id': image_id,
+                'user_id': user_id,
+            })
+        try:
+            self.client.table('person').insert(records).execute()
+            return
+        except Exception as e:
+            log_error(
+                f"Error update person table: {e}\n{traceback.format_exc()}")
 
 
 def get_supabase_service():
