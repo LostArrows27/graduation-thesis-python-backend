@@ -1,15 +1,19 @@
+from io import BytesIO
+import traceback
 import torch
 from collections import defaultdict
-from app.libs.logger.log import log_info
+from app.libs.logger.log import log_error, log_info
+from app.models.model import FaceCategoryModel
 from app.models.preprocess import load_features_parallel, load_labels_parallel, read_grouped_items, load_filter_items
 from app.models.config import CONFIG
 from app.services.supabase_service import SupabaseService
-from app.utils.image_utils import load_image_from_url
+from app.utils.image_utils import load_image_file_from_url, load_image_from_url
 
 
 class AIInferenceService:
-    def __init__(self, model, supabase_service: SupabaseService):
+    def __init__(self, model, supabase_service: SupabaseService, face_model: FaceCategoryModel):
         self.model = model
+        self.face_model = face_model
         self.supabase_service = supabase_service
 
         # load text features
@@ -30,6 +34,20 @@ class AIInferenceService:
             CONFIG["labels"]["location_filter"])
         self.location_group_labels = read_grouped_items(
             CONFIG["labels"]["location_group"])
+
+    # face model
+    def category_face(self, image_url: str):
+        try:
+            image_file = load_image_file_from_url(image_url)
+            face_locations, face_encoding = self.face_model.category_image(
+                image_file)
+            return face_locations, face_encoding
+        except Exception as e:
+            log_error(e)
+            log_error(
+                f"Error category face: {e}\n{traceback.format_exc()}")
+
+    # image_label model
 
     def is_relate_image(self, image_url: str):
         try:
