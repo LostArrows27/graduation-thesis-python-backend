@@ -45,3 +45,15 @@ class RedisService:
                 pass
             else:
                 raise e
+
+    def update_image_label_job(self, image_id: str, image_bucket_id: str, image_name: str):
+        self.update_hash(
+            f"image_job:{image_id}",
+            {
+                "image_bucket_id": image_bucket_id,
+                "image_name": image_name,
+                "label_status": "processing"
+            }
+        )
+
+        self.set_ttl(f"image_job:{image_id}", 10800)

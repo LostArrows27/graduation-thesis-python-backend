@@ -1,12 +1,13 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
+import traceback
 from app.libs.logger.log import log_error, log_info
 from app.services.ai_services import AIService
 from app.services.redis_service import RedisService
 import threading
 
 from app.services.supabase_service import SupabaseService
-from app.utils import process_image_concurrently
+from app.utils.process_image_concurrently import process_image_concurrently
 
 
 old_stream_thread = None
@@ -23,19 +24,9 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
         log_info(f"Start processing {image_name}")
 
         # Update Redis hash with job status (max 3 hours)
-        redis_service.update_hash(
-            f"image_job:{image_id}",
-            {
-                "image_bucket_id": image_bucket_id,
-                "image_name": image_name,
-                "label_status": "processing"
-            }
+        redis_service.update_image_label_job(
+            image_id, image_bucket_id, image_name
         )
-
-        redis_service.set_ttl(f"image_job:{image_id}", 10800)
-
-        image_bucket_id = fields["image_bucket_id"]
-        image_name = fields["image_name"]
 
         image_url = ai_service.inference_service.supabase_service.get_image_public_url(
             image_bucket_id, image_name)
@@ -75,7 +66,8 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
         log_info(f"End processing {entry_id}")
 
     except Exception as e:
-        log_error(f"Error processing image {image_id}: {e}")
+        log_error(
+            f"Error processing image {image_id}: {e}\n{traceback.format_exc()}")
 
 
 def process_label_job(ai_service: AIService, redis_service: RedisService):
@@ -128,8 +120,8 @@ def process_pending_label_job(ai_service: AIService, redis_service: RedisService
                 # Process each message
                 for message_data in messages:
                     entry_id, fields = message_data
-                    log_info(f"Processing pending message: {entry_id}")
-                    log_info(f"Fields: {fields}")
+                    log_info(
+                        f"Processing pending message with image_id: {fields['image_id']}")
 
                     # Process the message (this will also handle ack_stream)
                     process_message(ai_service, redis_service,
