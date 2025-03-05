@@ -13,7 +13,7 @@ from app.services.supabase_service import SupabaseService
 # 4. person_groups -> {[new_cluster_id_label]: [person]}
 # 5. noise_points -> [person]
 
-# TODO: mapping to return !
+# RETURN:
 # 1. person_groups -> {[label]: {person: [id+url+coordinate], cluster_id, cluster_name}}}
 # 2. noise_groups -> {[label]: {person: [id+url+coordinate], cluster_id, cluster_name}}}
 
@@ -41,8 +41,15 @@ def compare_centroids(new_clusters, old_clusters, person_groups, noise_points, s
         cluster_group = create_or_update_cluster(
             label, new_noise_centroid, old_clusters, [person], supabase_service, is_noise=True)
         old_cluster_group.update(cluster_group)
+        
+    # only take group with >= 2 person
+    new_cluster_group = {k: v for k, v in new_cluster_group.items() if len(v['person']) >= 2}
+    old_cluster_group = {k: v for k, v in old_cluster_group.items() if len(v['person']) >= 2}
 
-    return new_cluster_group, old_cluster_group
+    # combine new_cluster_group and old_cluster_group
+    results_group = {**new_cluster_group, **old_cluster_group}
+    
+    return results_group
 
 
 def create_or_update_cluster(label, new_centroid, clusters, person_group, supabase_service: SupabaseService, is_noise=False):
@@ -69,7 +76,8 @@ def create_or_update_cluster(label, new_centroid, clusters, person_group, supaba
         for person in person_group:
             person_group_results.append({
                 'id': person['id'],
-                'url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
+                'image_created_at': person['image']['created_at'],
+                'image_url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
                 'coordinate': person['coordinate']})
 
         results_group[label] = {
@@ -95,7 +103,8 @@ def create_or_update_cluster(label, new_centroid, clusters, person_group, supaba
         for person in person_group:
             person_group_results.append({
                 'id': person['id'],
-                'url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
+                'image_created_at': person['image']['created_at'],
+                'image_url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
                 'coordinate': person['coordinate']})
 
         results_group[label] = {

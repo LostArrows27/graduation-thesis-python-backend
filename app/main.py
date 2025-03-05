@@ -48,25 +48,25 @@ app.add_middleware(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.supabase_service = SupabaseService()
-    app.state.ai_service = AIService(app.state.supabase_service)
-    app.state.redis_service = RedisService()
+    # app.state.ai_service = AIService(app.state.supabase_service)
+    # app.state.redis_service = RedisService()
 
-    # init consumer group
-    app.state.redis_service.create_consumer_group(
-        'image_label_stream', 'image_label_group')
+    # # init consumer group
+    # app.state.redis_service.create_consumer_group(
+    #     'image_label_stream', 'image_label_group')
 
-    # start db not processed image processor
-    start_background_processor(
-        app.state.ai_service,
-        app.state.supabase_service, app.state.redis_service)
-    # start db change listener
-    start_listener(app.state.ai_service, app.state.supabase_service)
-    # start redis stream processors
-    start_stream_processors(app.state.ai_service, app.state.redis_service)
+    # # start db not processed image processor
+    # start_background_processor(
+    #     app.state.ai_service,
+    #     app.state.supabase_service, app.state.redis_service)
+    # # start db change listener
+    # start_listener(app.state.ai_service, app.state.supabase_service)
+    # # start redis stream processors
+    # start_stream_processors(app.state.ai_service, app.state.redis_service)
 
     yield
-    stop_listener()
-    stop_stream_processors()
+    # stop_listener()
+    # stop_stream_processors()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -148,6 +148,7 @@ def person_clustering(request: PersonClustering, supabase_service: SupabaseServi
                     person_return_data.append({
                         'id': person['id'],
                         'coordinate': person['coordinate'],
+                        'image_created_at': person['image']['created_at'],
                         'image_url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
                     })
 
@@ -165,8 +166,14 @@ def person_clustering(request: PersonClustering, supabase_service: SupabaseServi
             # 3. create new cluster_id for noise points
             noise_point_group = supabase_service.create_and_update_cluster_for_noise_point(
                 noise_points)
-
-            return {"status": "success", "data": {"person_groups": person_groups, "noise_points": noise_point_group}}
+            
+            # only take group with >= 2 person
+            person_groups = {k: v for k, v in person_groups.items() if len(v['persons']) >= 2}
+            noise_point_group = {k: v for k, v in noise_point_group.items() if len(v['persons']) >= 2}
+            
+            combined_group = {**person_groups, **noise_point_group}
+            return {"status": "success", "data": combined_group}
+            # return {"status": "success", "data": {"person_groups": person_groups, "noise_points": noise_point_group}}
 
         # case 2 -> has cluster_id
         # 1. calculate threshold between old and new cluster
@@ -180,10 +187,11 @@ def person_clustering(request: PersonClustering, supabase_service: SupabaseServi
 
             new_clusters = centroids
 
-            new_cluster_grop, old_cluster_group =  compare_centroids(new_clusters, old_clusters,
+            combine_cluster_group =  compare_centroids(new_clusters, old_clusters,
                               person_groups, noise_points, supabase_service)
             
-            return {"status": "success", "data": {"person_groups": new_cluster_grop, "noise_points": old_cluster_group}}
+            # return {"status": "success", "data": {"person_groups": new_cluster_group, "noise_points": old_cluster_group}}
+            return {"status": "success", "data": combine_cluster_group}
 
     except Exception as e:
         log_error(f"Error person clutering API: {e}\n{traceback.format_exc()}")

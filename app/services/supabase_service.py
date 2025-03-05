@@ -73,7 +73,7 @@ class SupabaseService:
     def get_all_user_person(self, user_id):
         try:
             response = self.client.table('person').select(
-                '*, image(image_name, image_bucket_id)').eq('user_id', user_id).execute()
+                '*, image(image_name, image_bucket_id, created_at)').eq('user_id', user_id).execute()
             return response.data
         except Exception as e:
             log_error(
@@ -138,6 +138,7 @@ class SupabaseService:
                     'persons': {
                         'id': noise_points[i]['id'],
                         'coordinate': noise_points[i]['coordinate'],
+                        'image_created_at': noise_points[i]['image']['created_at'],
                         'image_url': self.get_image_public_url(noise_points[i]['image']['image_bucket_id'], noise_points[i]['image']['image_name'])
                     }
                 }
