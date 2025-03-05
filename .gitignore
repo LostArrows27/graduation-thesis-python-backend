@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *.pyo
 
+# category face result
+ais/*
+results/*
+
 # Virtual environment
 env/
 venv/

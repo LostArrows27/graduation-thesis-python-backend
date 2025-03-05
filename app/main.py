@@ -4,7 +4,10 @@ from typing import List
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.libs.logger.log import log_error
+
+import numpy as np
+from sklearn.cluster import DBSCAN
+from app.libs.logger.log import log_error, log_info
 from app.services.redis_service import RedisService
 from app.tasks.check_db_on_startup import start_background_processor
 from app.tasks.db_listener import start_listener, stop_listener
@@ -15,7 +18,11 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import os
 import traceback
+import os
 
+from app.utils.compare_centroit import compare_centroids
+
+os.environ['LOKY_MAX_CPU_COUNT'] = '10'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 
@@ -74,6 +81,113 @@ def get_redis_service(request: Request) -> RedisService:
 
 def get_supabase_service(request: Request) -> SupabaseService:
     return request.app.state.supabase_service
+
+
+class PersonClustering(BaseModel):
+    user_id: str
+
+
+# return person group + noise point group
+# each group contain cluster_id, cluster_name, person[]
+@app.post("/api/person-clustering")
+def person_clustering(request: PersonClustering, supabase_service: SupabaseService = Depends(get_supabase_service)):
+    try:
+        user_id = request.user_id
+        # get all person of the user
+        person_list = supabase_service.get_all_user_person(user_id)
+        eps = 0.41  # or 0.4-4
+        min_samples = 4  # or 0.41-3
+
+        embeddings = [json.loads(person['embedding'])
+                      for person in person_list]
+
+        dbscan = DBSCAN(eps=eps, metric='euclidean', min_samples=min_samples)
+        labels = dbscan.fit(embeddings)
+
+        # group person by labels / noise -> -1
+        person_groups = {}
+        noise_points = []
+        for i, label in enumerate(labels.labels_):
+            if label == -1:
+                noise_points.append(person_list[i])
+            else:
+                label_str = str(label)
+                if label_str not in person_groups:
+                    person_groups[label_str] = []
+                person_groups[label_str].append(person_list[i])
+
+        is_had_old_cluster = False
+        for person in person_list:
+            if person['cluster_id'] is not None:
+                is_had_old_cluster = True
+                break
+
+        # calculate centroid for each new cluster
+        centroids = {}
+        for label, group in person_groups.items():
+            cluster_embeddings = [json.loads(
+                person['embedding']) for person in group]
+            centroid = np.mean(cluster_embeddings, axis=0)
+            centroids[label] = centroid
+
+        # case 1 -> no cluster_id
+        if not is_had_old_cluster:
+            log_info("No cluster_id")
+            # 1. insert all cluster to db
+            cluster_ids = supabase_service.insert_all_cluster_mapping(
+                centroids)
+
+            # 2. update all person in each cluster with cluster_id
+            # cluster_id -> {label: id}
+            for label, group in person_groups.items():
+                cluster_id = cluster_ids[str(label)]['id']
+                cluster_name = cluster_ids[str(label)]['name']
+
+                person_return_data = []
+                for person in group:
+                    person_return_data.append({
+                        'id': person['id'],
+                        'coordinate': person['coordinate'],
+                        'image_url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
+                    })
+
+                person_groups[label] = {
+                    'cluster_id': cluster_id,
+                    'cluster_name': cluster_name,
+                    'persons': person_return_data
+                }
+
+                update_person_id = [person['id'] for person in group]
+
+                supabase_service.update_person_cluster_id(
+                    update_person_id, cluster_id)
+
+            # 3. create new cluster_id for noise points
+            noise_point_group = supabase_service.create_and_update_cluster_for_noise_point(
+                noise_points)
+
+            return {"status": "success", "data": {"person_groups": person_groups, "noise_points": noise_point_group}}
+
+        # case 2 -> has cluster_id
+        # 1. calculate threshold between old and new cluster
+        # 2. update person with new cluster_id if threshold < ....
+        # 3. insert all new cluster to db
+        # 4. update person with new cluster_id
+        else:
+            # 1. get all old cluster
+            old_clusters = supabase_service.get_all_cluster_mapping(
+                user_id=user_id)
+
+            new_clusters = centroids
+
+            new_cluster_grop, old_cluster_group =  compare_centroids(new_clusters, old_clusters,
+                              person_groups, noise_points, supabase_service)
+            
+            return {"status": "success", "data": {"person_groups": new_cluster_grop, "noise_points": old_cluster_group}}
+
+    except Exception as e:
+        log_error(f"Error person clutering API: {e}\n{traceback.format_exc()}")
+        return {"status": "error", "message": "Error in person clustering."}
 
 
 class ImageRequest(BaseModel):

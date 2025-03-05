@@ -1,4 +1,5 @@
 import datetime
+import json
 import traceback
 import numpy as np
 from supabase import create_client, Client
@@ -68,6 +69,118 @@ class SupabaseService:
         except Exception as e:
             log_error(
                 f"Error update person table: {e}\n{traceback.format_exc()}")
+
+    def get_all_user_person(self, user_id):
+        try:
+            response = self.client.table('person').select(
+                '*, image(image_name, image_bucket_id)').eq('user_id', user_id).execute()
+            return response.data
+        except Exception as e:
+            log_error(
+                f"Error get all user person: {e}\n{traceback.format_exc()}")
+            return []
+
+    def insert_all_cluster_mapping(self, centroids):
+        try:
+            records = []
+            for label, centroid in centroids.items():
+                records.append({
+                    'name': f'Person {label}',
+                    'centroid': np.array(centroid).tolist()
+                })
+
+            response = self.client.table(
+                'cluster_mapping').insert(records).execute()
+
+            cluster_mapping = {}
+
+            for i, record in enumerate(response.data):
+                label_str = record['name'].split(' ')[1]
+                cluster_mapping[label_str] = {
+                    'id': record['id'],
+                    'name': record['name'],
+                }
+
+            return cluster_mapping
+        except Exception as e:
+            log_error(
+                f"Error insert all cluster mapping: {e}\n{traceback.format_exc()}")
+            return []
+
+    def update_person_cluster_id(self, person_ids, cluster_id):
+        try:
+            response = self.client.table('person').update({
+                'cluster_id': cluster_id
+            }).in_('id', person_ids).execute()
+            return response.data
+        except Exception as e:
+            log_error(
+                f"Error update person cluster id: {e}\n{traceback.format_exc()}")
+            return []
+
+    def create_and_update_cluster_for_noise_point(self, noise_points):
+        request = []
+        for person in noise_points:
+            request.append({
+                'name': f'Noise {person["id"]}',
+                'centroid': person['embedding']
+            })
+        try:
+            response = self.client.table(
+                'cluster_mapping').insert(request).execute()
+            cluster_mapping = {}
+
+            for i, record in enumerate(response.data):
+                label_str = record['name']
+                cluster_mapping[label_str] = {
+                    'cluster_id': record['id'],
+                    'cluster_name': record['name'],
+                    'persons': {
+                        'id': noise_points[i]['id'],
+                        'coordinate': noise_points[i]['coordinate'],
+                        'image_url': self.get_image_public_url(noise_points[i]['image']['image_bucket_id'], noise_points[i]['image']['image_name'])
+                    }
+                }
+
+            # update cluster_id for noise points
+            for person in noise_points:
+                cluster_id = cluster_mapping[f'Noise {person["id"]}']['cluster_id']
+                self.client.table('person').update({
+                    'cluster_id': cluster_id
+                }).eq('id', person['id']).execute()
+
+            return cluster_mapping
+        except Exception as e:
+            log_error(
+                f"Error create and update cluster for noise point: {e}\n{traceback.format_exc()}")
+            return []
+
+    def get_all_cluster_mapping(self, user_id):
+        try:
+            response = self.client.table('person').select(
+                '*, cluster_mapping(*)').eq('user_id', user_id).not_.is_('cluster_id', None).execute()
+            return [{
+                'id': person['cluster_mapping']['id'],
+                'name': person['cluster_mapping']['name'],
+                'centroid': json.loads(person['cluster_mapping']['centroid']),
+            } for person in response.data]
+
+        except Exception as e:
+            log_error(
+                f"Error get all cluster mapping: {e}\n{traceback.format_exc()}")
+            return []
+
+    def create_cluster(self, cluster_name, centroid):
+        try:
+            response = self.client.table('cluster_mapping').insert({
+                'name': cluster_name,
+                'centroid': centroid
+            }).execute()
+            return response.data[0]
+        except Exception as e:
+            log_error(
+                f"Error create cluster: {e}\n{traceback.format_exc()}")
+            raise e
 
 
 def get_supabase_service():
