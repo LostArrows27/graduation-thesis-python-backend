@@ -20,7 +20,7 @@ import os
 import traceback
 import os
 
-from app.utils.compare_centroit import compare_centroids
+from app.utils.compare_centroit import compare_centroids, remove_duplicates_by_image_url
 
 os.environ['LOKY_MAX_CPU_COUNT'] = '10'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -166,11 +166,28 @@ def person_clustering(request: PersonClustering, supabase_service: SupabaseServi
             # 3. create new cluster_id for noise points
             noise_point_group = supabase_service.create_and_update_cluster_for_noise_point(
                 noise_points)
-            
+
             # only take group with >= 2 person
-            person_groups = {k: v for k, v in person_groups.items() if len(v['persons']) >= 2}
-            noise_point_group = {k: v for k, v in noise_point_group.items() if len(v['persons']) >= 2}
-            
+            person_groups = {
+                k: v for k, v in person_groups.items() if len(v['persons']) >= 2}
+            noise_point_group = {
+                k: v for k, v in noise_point_group.items() if len(v['persons']) >= 2}
+
+            # in each group, remove person with same image_url
+            for label, group in person_groups.items():
+                group['person'] = remove_duplicates_by_image_url(
+                    group['person'])
+
+            for label, group in noise_point_group.items():
+                group['person'] = remove_duplicates_by_image_url(
+                    group['person'])
+
+            # Filter groups again to ensure they still have >= 2 persons after deduplication
+            person_groups = {
+                k: v for k, v in person_groups.items() if len(v['person']) >= 2}
+            noise_point_group = {
+                k: v for k, v in noise_point_group.items() if len(v['person']) >= 2}
+
             combined_group = {**person_groups, **noise_point_group}
             return {"status": "success", "data": combined_group}
             # return {"status": "success", "data": {"person_groups": person_groups, "noise_points": noise_point_group}}
@@ -187,9 +204,9 @@ def person_clustering(request: PersonClustering, supabase_service: SupabaseServi
 
             new_clusters = centroids
 
-            combine_cluster_group =  compare_centroids(new_clusters, old_clusters,
-                              person_groups, noise_points, supabase_service)
-            
+            combine_cluster_group = compare_centroids(new_clusters, old_clusters,
+                                                      person_groups, noise_points, supabase_service)
+
             # return {"status": "success", "data": {"person_groups": new_cluster_group, "noise_points": old_cluster_group}}
             return {"status": "success", "data": combine_cluster_group}
 

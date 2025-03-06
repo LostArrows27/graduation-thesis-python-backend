@@ -41,14 +41,29 @@ def compare_centroids(new_clusters, old_clusters, person_groups, noise_points, s
         cluster_group = create_or_update_cluster(
             label, new_noise_centroid, old_clusters, [person], supabase_service, is_noise=True)
         old_cluster_group.update(cluster_group)
-        
+
     # only take group with >= 2 person
-    new_cluster_group = {k: v for k, v in new_cluster_group.items() if len(v['person']) >= 2}
-    old_cluster_group = {k: v for k, v in old_cluster_group.items() if len(v['person']) >= 2}
+    new_cluster_group = {
+        k: v for k, v in new_cluster_group.items() if len(v['person']) >= 2}
+    old_cluster_group = {
+        k: v for k, v in old_cluster_group.items() if len(v['person']) >= 2}
+
+    # in each group, remove person with same image_url
+    for label, group in new_cluster_group.items():
+        group['person'] = remove_duplicates_by_image_url(group['person'])
+        
+    for label, group in old_cluster_group.items():
+        group['person'] = remove_duplicates_by_image_url(group['person'])
+
+    # Filter groups again to ensure they still have >= 2 persons after deduplication
+    new_cluster_group = {
+        k: v for k, v in new_cluster_group.items() if len(v['person']) >= 2}
+    old_cluster_group = {
+        k: v for k, v in old_cluster_group.items() if len(v['person']) >= 2}
 
     # combine new_cluster_group and old_cluster_group
     results_group = {**new_cluster_group, **old_cluster_group}
-    
+
     return results_group
 
 
@@ -114,6 +129,18 @@ def create_or_update_cluster(label, new_centroid, clusters, person_group, supaba
         }
 
     return results_group
+
+def remove_duplicates_by_image_url(person_list):
+    seen_urls = set()
+    unique_persons = []
+    
+    for person in person_list:
+        image_url = person['image_url']
+        if image_url not in seen_urls:
+            seen_urls.add(image_url)
+            unique_persons.append(person)
+    
+    return unique_persons
 
 # # Example usage:
 # new_clusters = {
