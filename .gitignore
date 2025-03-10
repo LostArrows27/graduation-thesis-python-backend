@@ -6,6 +6,7 @@ __pycache__/
 # category face result
 ais/*
 results/*
+detected_faces/*
 
 # Virtual environment
 env/

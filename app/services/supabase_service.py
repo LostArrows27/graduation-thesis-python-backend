@@ -73,7 +73,7 @@ class SupabaseService:
     def get_all_user_person(self, user_id):
         try:
             response = self.client.table('person').select(
-                '*, image(image_name, image_bucket_id, created_at)').eq('user_id', user_id).execute()
+                '*, image(id, image_name, image_bucket_id, created_at, labels   )').eq('user_id', user_id).execute()
             return response.data
         except Exception as e:
             log_error(
@@ -135,12 +135,17 @@ class SupabaseService:
                 cluster_mapping[label_str] = {
                     'cluster_id': record['id'],
                     'cluster_name': record['name'],
-                    'persons': {
-                        'id': noise_points[i]['id'],
-                        'coordinate': noise_points[i]['coordinate'],
-                        'image_created_at': noise_points[i]['image']['created_at'],
-                        'image_url': self.get_image_public_url(noise_points[i]['image']['image_bucket_id'], noise_points[i]['image']['image_name'])
-                    }
+                    'person': [
+                        {
+                            'id': noise_points[i]['id'],
+                            'coordinate': noise_points[i]['coordinate'],
+                            'image_id': noise_points[i]['image']['id'],
+                            'image_created_at': noise_points[i]['image']['created_at'],
+                            'image_bucket_id': noise_points[i]['image']['image_bucket_id'],
+                            'image_name': noise_points[i]['image']['image_name'],
+                            'image_label': noise_points[i]['image']['labels']
+                        }
+                    ]
                 }
 
             # update cluster_id for noise points

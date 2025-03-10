@@ -50,10 +50,10 @@ def compare_centroids(new_clusters, old_clusters, person_groups, noise_points, s
 
     # in each group, remove person with same image_url
     for label, group in new_cluster_group.items():
-        group['person'] = remove_duplicates_by_image_url(group['person'])
-        
+        group['person'] = remove_duplicates_by_image_name(group['person'])
+
     for label, group in old_cluster_group.items():
-        group['person'] = remove_duplicates_by_image_url(group['person'])
+        group['person'] = remove_duplicates_by_image_name(group['person'])
 
     # Filter groups again to ensure they still have >= 2 persons after deduplication
     new_cluster_group = {
@@ -91,8 +91,11 @@ def create_or_update_cluster(label, new_centroid, clusters, person_group, supaba
         for person in person_group:
             person_group_results.append({
                 'id': person['id'],
+                'image_id': person['image']['id'],
                 'image_created_at': person['image']['created_at'],
-                'image_url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
+                'image_bucket_id': person['image']['image_bucket_id'],
+                'image_name': person['image']['image_name'],
+                'image_label': person['image']['labels'],
                 'coordinate': person['coordinate']})
 
         results_group[label] = {
@@ -103,7 +106,10 @@ def create_or_update_cluster(label, new_centroid, clusters, person_group, supaba
 
     else:
         # Create new cluster
-        cluster_name = f"{'Noise ' if is_noise else ''}{label}"
+        label_id = ""
+        if (label.startswith('Noise') or label.startswith('Person')):
+            label_id = label.split(' ')[1]
+        cluster_name = f"{'Noise ' if is_noise else 'Person '}{label_id}"
         centroid = new_centroid.tolist()
         new_cluster = supabase_service.create_cluster(cluster_name, centroid)
 
@@ -118,8 +124,11 @@ def create_or_update_cluster(label, new_centroid, clusters, person_group, supaba
         for person in person_group:
             person_group_results.append({
                 'id': person['id'],
+                'image_id': person['image']['id'],
                 'image_created_at': person['image']['created_at'],
-                'image_url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
+                'image_bucket_id': person['image']['image_bucket_id'],
+                'image_name': person['image']['image_name'],
+                'image_label': person['image']['labels'],
                 'coordinate': person['coordinate']})
 
         results_group[label] = {
@@ -130,16 +139,17 @@ def create_or_update_cluster(label, new_centroid, clusters, person_group, supaba
 
     return results_group
 
-def remove_duplicates_by_image_url(person_list):
-    seen_urls = set()
+
+def remove_duplicates_by_image_name(person_list):
+    seen_image_name = set()
     unique_persons = []
-    
+
     for person in person_list:
-        image_url = person['image_url']
-        if image_url not in seen_urls:
-            seen_urls.add(image_url)
+        image_name = person['image_name']
+        if image_name not in seen_image_name:
+            seen_image_name.add(image_name)
             unique_persons.append(person)
-    
+
     return unique_persons
 
 # # Example usage:

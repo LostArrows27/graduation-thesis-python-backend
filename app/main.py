@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 from app.libs.logger.log import log_error, log_info
 from app.services.redis_service import RedisService
-from app.tasks.check_db_on_startup import start_background_processor
+from app.tasks.check_db_on_startup import cleanup_background_thread, start_background_processor
 from app.tasks.db_listener import start_listener, stop_listener
 from app.services.ai_services import AIService, get_ai_service
 from app.services.supabase_service import SupabaseService
@@ -20,7 +20,7 @@ import os
 import traceback
 import os
 
-from app.utils.compare_centroit import compare_centroids, remove_duplicates_by_image_url
+from app.utils.compare_centroit import compare_centroids, remove_duplicates_by_image_name
 
 os.environ['LOKY_MAX_CPU_COUNT'] = '10'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -51,22 +51,23 @@ async def lifespan(app: FastAPI):
     # app.state.ai_service = AIService(app.state.supabase_service)
     # app.state.redis_service = RedisService()
 
-    # # init consumer group
+    # # # init consumer group
     # app.state.redis_service.create_consumer_group(
     #     'image_label_stream', 'image_label_group')
 
-    # # start db not processed image processor
+    # # # start db not processed image processor
     # start_background_processor(
     #     app.state.ai_service,
     #     app.state.supabase_service, app.state.redis_service)
     # # start db change listener
-    # start_listener(app.state.ai_service, app.state.supabase_service)
+    # # start_listener(app.state.ai_service, app.state.supabase_service)
     # # start redis stream processors
     # start_stream_processors(app.state.ai_service, app.state.redis_service)
 
     yield
     # stop_listener()
     # stop_stream_processors()
+    # cleanup_background_thread()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -148,14 +149,17 @@ def person_clustering(request: PersonClustering, supabase_service: SupabaseServi
                     person_return_data.append({
                         'id': person['id'],
                         'coordinate': person['coordinate'],
+                        'image_id': person['image']['id'],
                         'image_created_at': person['image']['created_at'],
-                        'image_url': supabase_service.get_image_public_url(person['image']['image_bucket_id'], person['image']['image_name']),
+                        'image_bucket_id': person['image']['image_bucket_id'],
+                        'image_name': person['image']['image_name'],
+                        'image_label': person['image']['labels'],
                     })
 
                 person_groups[label] = {
                     'cluster_id': cluster_id,
                     'cluster_name': cluster_name,
-                    'persons': person_return_data
+                    'person': person_return_data
                 }
 
                 update_person_id = [person['id'] for person in group]
@@ -169,17 +173,17 @@ def person_clustering(request: PersonClustering, supabase_service: SupabaseServi
 
             # only take group with >= 2 person
             person_groups = {
-                k: v for k, v in person_groups.items() if len(v['persons']) >= 2}
+                k: v for k, v in person_groups.items() if len(v['person']) >= 2}
             noise_point_group = {
-                k: v for k, v in noise_point_group.items() if len(v['persons']) >= 2}
+                k: v for k, v in noise_point_group.items() if len(v['person']) >= 2}
 
             # in each group, remove person with same image_url
             for label, group in person_groups.items():
-                group['person'] = remove_duplicates_by_image_url(
+                group['person'] = remove_duplicates_by_image_name(
                     group['person'])
 
             for label, group in noise_point_group.items():
-                group['person'] = remove_duplicates_by_image_url(
+                group['person'] = remove_duplicates_by_image_name(
                     group['person'])
 
             # Filter groups again to ensure they still have >= 2 persons after deduplication

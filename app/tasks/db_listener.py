@@ -76,7 +76,6 @@ def listen_to_notifications(ai_service: AIService, supabase_service: SupabaseSer
                         face_encodings, face_locations, image_id, user_id, image_name)
 
                     supabase_service.mark_image_done_face_detection(image_id)
-                    
                     log_info(f"Face detection done for image: {image_name}")
 
                 except RuntimeError as e:
