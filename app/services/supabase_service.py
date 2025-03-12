@@ -1,5 +1,6 @@
 import datetime
 import json
+import time
 import traceback
 import numpy as np
 from supabase import create_client, Client
@@ -12,6 +13,47 @@ class SupabaseService:
     def __init__(self):
         self.client: Client = create_client(
             settings.supabase_url, settings.supabase_key)
+
+    def query_image_by_search_history_id(self, search_history_id: str, user_id: str, threshold=0.24):
+
+        #  SELECT * FROM public.search_similar_images(
+        #     '19b2701f-5a38-456b-ae63-5f5dd5225c2e'::UUID,
+        #     0.24,
+        #     'e6a99c3a-4b41-4f49-98b7-d97afedf4f66'
+        # );
+
+        result = self.client.rpc('search_similar_images', {
+            'search_history_id': search_history_id,
+            'similarity_threshold': threshold,
+            'user_id': user_id
+        }).execute()
+
+        return result.data
+
+    def save_text_features_to_search_history(self, text: str, user_id: str,  text_features: torch.Tensor):
+        response = self.client.table('search_history').insert({
+            'content': text,
+            'text_features': text_features,
+            'user_id': user_id,
+        }).execute()
+        return response.data[0]['id']
+
+    def get_all_images(self):
+        # get first 100 images from the database sort by created_at desc
+        start = time.time()
+        response = self.client.table('image').select(
+            '*').order('created_at', desc=True).limit(100).execute()
+
+        log_info(f"Get all images time: {time.time() - start}")
+        return response.data
+
+    def save_text_features_to_search_history_test(self, text: str, text_features: torch.Tensor):
+        response = self.client.table('search_history').insert({
+            'content': text,
+            'text_features': text_features,
+            'user_id': 'e6a99c3a-4b41-4f49-98b7-d97afedf4f66',
+        }).execute()
+        return response.data[0]
 
     def get_image_metadata(self, image_id: str):
         response = self.client.table('image').select(

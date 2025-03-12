@@ -7,6 +7,7 @@ __pycache__/
 ais/*
 results/*
 detected_faces/*
+old_sql/*
 
 # Virtual environment
 env/

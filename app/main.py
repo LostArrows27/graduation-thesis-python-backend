@@ -48,7 +48,7 @@ app.add_middleware(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.supabase_service = SupabaseService()
-    # app.state.ai_service = AIService(app.state.supabase_service)
+    app.state.ai_service = AIService(app.state.supabase_service)
     # app.state.redis_service = RedisService()
 
     # # # init consumer group
@@ -332,6 +332,22 @@ async def classify_images(request: ImageBatchRequest, service: AIService = Depen
         # add statuscode 500
         return {"status": "error", "message": str(e)}
     return {"status": "success", "data": image_rows}
+
+
+class QueryImageRequest(BaseModel):
+    user_id: str
+    query: str
+    threshold: float
+
+
+@app.post("/api/query-image")
+def query_image(request: QueryImageRequest, service: AIService = Depends(get_ai_service)):
+    try:
+        result = service.save_text_search_history(
+            request.query, request.user_id, request.threshold)
+        return result
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # hello world test endpoint
 

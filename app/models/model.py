@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw
 import datetime
 import os
 
+
 class AIModel:
     def __init__(self):
         self.device = CONFIG["device"]
@@ -26,6 +27,13 @@ class AIModel:
         self.tokenizer = open_clip.get_tokenizer("ViT-B-32")
         log_info("CLIP mode done loading")
 
+    def get_text_features(self, text: str):
+        with torch.no_grad(), torch.amp.autocast('cuda'):
+            tokenizer_text = self.tokenizer(text)
+            text_features = self.model.encode_text(tokenizer_text)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+        return text_features
+
 
 class FaceCategoryModel:
     def __init__(self):
@@ -37,25 +45,25 @@ class FaceCategoryModel:
         self.model = face_recognition
 
         # warm up model
-        try:
-            start = time.time()
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            image = self.model.load_image_file(
-                os.path.join(current_dir, "../utils/image/warm_up.jpg"))
+        # try:
+        #     start = time.time()
+        #     current_dir = os.path.dirname(os.path.abspath(__file__))
+        #     image = self.model.load_image_file(
+        #         os.path.join(current_dir, "../utils/image/warm_up.jpg"))
 
-            face_locations = self.model.face_locations(image, model="cnn")
+        #     face_locations = self.model.face_locations(image, model="cnn")
 
-            if face_locations.__len__() == 0:
-                raise Exception("No face found in the image")
-        except Exception as e:
-            log_error(e)
-            log_error(
-                f"Error loading face_regconition model: {e}\n{traceback.format_exc()}")
-            raise Exception(e)
-        finally:
-            end = time.time()
-            log_info(
-                f"Face recognition model warm up time: {end - start} seconds")
+        #     if face_locations.__len__() == 0:
+        #         raise Exception("No face found in the image")
+        # except Exception as e:
+        #     log_error(e)
+        #     log_error(
+        #         f"Error loading face_regconition model: {e}\n{traceback.format_exc()}")
+        #     raise Exception(e)
+        # finally:
+        #     end = time.time()
+        #     log_info(
+        #         f"Face recognition model warm up time: {end - start} seconds")
 
     def category_image(self, image_file: BytesIO):
         try:
