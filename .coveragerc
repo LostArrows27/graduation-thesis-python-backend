@@ -1,0 +1,14 @@
+[run]
+source =
+    app.utils.image_utils
+    app.models.preprocess
+omit =
+    app/test/*
+    */__pycache__/*
+    */site-packages/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError

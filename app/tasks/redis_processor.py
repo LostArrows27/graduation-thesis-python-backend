@@ -28,11 +28,8 @@ def process_message(ai_service: AIService, redis_service: RedisService, entry_id
             image_id, image_bucket_id, image_name
         )
 
-        image_url = ai_service.inference_service.supabase_service.get_image_public_url(
-            image_bucket_id, image_name)
-
         image_labels, image_features = process_image_concurrently(
-            ai_service, image_bucket_id, image_name, image_url)
+            ai_service, image_bucket_id, image_name)
 
         # Save labels, feature to Supabase
         supabase_service: SupabaseService = ai_service.inference_service.supabase_service

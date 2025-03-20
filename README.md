@@ -19,3 +19,13 @@ pip install pydantic pydantic_settings fastapi dotenv uvicorn open_clip_torch re
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 ```
+
+### 4. Test 🧪
+- Install dependencies 
+   ```bash
+    pip install pytest pytest-cov pytest-mock pytest-html
+   ```
+- Run test
+  ```bash
+    conda active dlib; python -m pytest 
+  ```

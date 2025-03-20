@@ -62,16 +62,13 @@ def process_unlabeled_images(ai_service: AIService, supabase_service: SupabaseSe
 
             log_info(f"Processing unlabeled image {image_name}")
 
-            image_url = ai_service.inference_service.supabase_service.get_image_public_url(
-                image_bucket_id, image_name)
-
             # update redis label job -> processing
             redis_service.update_image_label_job(
                 image_id, image_bucket_id, image_name
             )
 
             image_labels, image_features = process_image_concurrently(
-                ai_service, image_bucket_id, image_name, image_url)
+                ai_service, image_bucket_id, image_name)
 
             # update redis label job -> completed
             redis_service.update_hash(
@@ -140,6 +137,8 @@ def start_background_processor(ai_service: AIService, supabase_service: Supabase
     log_info("Background processor started in sequential mode")
 
 # Function to clean up the coordinator thread if needed
+
+
 def cleanup_background_thread(timeout=5):
     global coordinator_thread
 

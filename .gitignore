@@ -9,6 +9,10 @@ results/*
 detected_faces/*
 old_sql/*
 
+# test
+htmlcov/*
+.coverage
+
 # Virtual environment
 env/
 venv/

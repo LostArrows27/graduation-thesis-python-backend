@@ -49,24 +49,24 @@ app.add_middleware(
 async def lifespan(app: FastAPI):
     app.state.supabase_service = SupabaseService()
     app.state.ai_service = AIService(app.state.supabase_service)
-    # app.state.redis_service = RedisService()
+    app.state.redis_service = RedisService()
 
     # # # init consumer group
-    # app.state.redis_service.create_consumer_group(
-    #     'image_label_stream', 'image_label_group')
+    app.state.redis_service.create_consumer_group(
+        'image_label_stream', 'image_label_group')
 
     # # # start db not processed image processor
     # start_background_processor(
     #     app.state.ai_service,
     #     app.state.supabase_service, app.state.redis_service)
     # # start db change listener
-    # # start_listener(app.state.ai_service, app.state.supabase_service)
+    # start_listener(app.state.ai_service, app.state.supabase_service)
     # # start redis stream processors
-    # start_stream_processors(app.state.ai_service, app.state.redis_service)
+    start_stream_processors(app.state.ai_service, app.state.redis_service)
 
     yield
     # stop_listener()
-    # stop_stream_processors()
+    stop_stream_processors()
     # cleanup_background_thread()
 
 app = FastAPI(lifespan=lifespan)
@@ -96,8 +96,14 @@ def person_clustering(request: PersonClustering, supabase_service: SupabaseServi
         user_id = request.user_id
         # get all person of the user
         person_list = supabase_service.get_all_user_person(user_id)
+
+        if (person_list is None) or (len(person_list) == 0):
+            return {"status": "success", "data": {}}
+
         eps = 0.41  # or 0.4-4
         min_samples = 4  # or 0.41-3
+
+        log_info('user request clustering person')
 
         embeddings = [json.loads(person['embedding'])
                       for person in person_list]
@@ -345,7 +351,10 @@ def query_image(request: QueryImageRequest, service: AIService = Depends(get_ai_
     try:
         result = service.save_text_search_history(
             request.query, request.user_id, request.threshold)
-        return result
+        return {
+            "status": "success",
+            "data": result
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
