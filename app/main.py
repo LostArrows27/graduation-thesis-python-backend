@@ -21,6 +21,7 @@ import traceback
 import os
 
 from app.test.face_image.test_face_image import process_face_images
+from app.test.open_clip.test_open_clip import process_test_open_clip
 from app.utils.compare_centroit import compare_centroids, remove_duplicates_by_image_name
 
 os.environ['LOKY_MAX_CPU_COUNT'] = '10'
@@ -45,32 +46,34 @@ app.add_middleware(
 )
 
 # process_face_images()
-
+process_test_open_clip()
 
 # dependency injection -> AI labeling service + Supabase service into -> bg_tasks
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.supabase_service = SupabaseService()
-    app.state.ai_service = AIService(app.state.supabase_service)
-    app.state.redis_service = RedisService()
+    # app.state.supabase_service = SupabaseService()
+    # app.state.ai_service = AIService(app.state.supabase_service)
+    # app.state.redis_service = RedisService()
 
-    # # # init consumer group
-    app.state.redis_service.create_consumer_group(
-        'image_label_stream', 'image_label_group')
+    # # # # init consumer group
+    # app.state.redis_service.create_consumer_group(
+    #     'image_label_stream', 'image_label_group')
 
-    # # # start db not processed image processor
-    # start_background_processor(
-    #     app.state.ai_service,
-    #     app.state.supabase_service, app.state.redis_service)
-    # # start db change listener
-    # start_listener(app.state.ai_service, app.state.supabase_service)
-    # start redis stream processors
-    start_stream_processors(app.state.ai_service, app.state.redis_service)
+    # # # # start db not processed image processor
+    # # start_background_processor(
+    # #     app.state.ai_service,
+    # #     app.state.supabase_service, app.state.redis_service)
+    # # # start db change listener
+    # # start_listener(app.state.ai_service, app.state.supabase_service)
+    # # start redis stream processors
+    # start_stream_processors(app.state.ai_service, app.state.redis_service)
 
     yield
-    # stop_listener()
-    stop_stream_processors()
-    # cleanup_background_thread()
+    # # stop_listener()
+    # stop_stream_processors()
+    # # cleanup_background_thread()
 
 app = FastAPI(lifespan=lifespan)
 

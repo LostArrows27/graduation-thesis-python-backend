@@ -10,6 +10,8 @@ detected_faces/*
 old_sql/*
 app/test/face_image/images/*
 app/test/face_image/test_face_results/*
+app/test/open_clip/image/*
+app/test/open_clip/results/*
 
 # test
 htmlcov/*
