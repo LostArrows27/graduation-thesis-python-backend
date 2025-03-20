@@ -1,6 +1,7 @@
 [run]
 source =
     app.utils.image_utils
+    app.utils.compare_centroit
     app.models.preprocess
 omit =
     app/test/*

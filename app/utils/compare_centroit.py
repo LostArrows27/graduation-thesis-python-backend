@@ -70,6 +70,7 @@ def compare_centroids(new_clusters, old_clusters, person_groups, noise_points, s
 def create_or_update_cluster(label, new_centroid, clusters, person_group, supabase_service: SupabaseService, is_noise=False):
     threshold = 0.95
     old_centroids = [np.array(cluster['centroid']) for cluster in clusters]
+
     similarities = cosine_similarity([new_centroid], old_centroids)
     best_match_index = np.argmax(similarities)
     best_match_similarity = similarities[0, best_match_index]
