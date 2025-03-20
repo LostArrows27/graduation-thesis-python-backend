@@ -31,12 +31,18 @@ class SupabaseService:
         return result.data
 
     def save_text_features_to_search_history(self, text: str, user_id: str,  text_features: torch.Tensor):
-        response = self.client.table('search_history').insert({
-            'content': text,
-            'text_features': text_features,
-            'user_id': user_id,
-        }).execute()
-        return response.data[0]['id']
+
+        try:
+            response = self.client.table('search_history').insert({
+                'content': text,
+                'text_features': text_features,
+                'user_id': user_id,
+            }).execute()
+            return response.data[0]['id']
+        except Exception as e:
+            log_error(
+                f"Error save text_features to search history: {e}\n{traceback.format_exc()}")
+            raise e
 
     def get_all_images(self):
         # get first 100 images from the database sort by created_at desc

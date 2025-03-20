@@ -243,48 +243,6 @@ class ImageBatchRequest(BaseModel):
     data: List[ImageList]
 
 
-@app.post("/api/classify-image")
-def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_service), redis_service: RedisService = Depends(get_redis_service)):
-    # check user id
-    if request.user_id == '' or request.user_id is None:
-        return {"status": "error", "message": "User id is required."}
-
-    try:
-        image_id = request.image_id
-        image_bucket_id = request.image_bucket_id
-        image_name = request.image_name
-        image_url = service.inference_service.supabase_service.get_image_public_url(
-            image_bucket_id, image_name)
-
-        # update redis label job -> processing
-        redis_service.update_image_label_job(
-            image_id, image_bucket_id, image_name
-        )
-
-        results, image_features = service.classify_image(
-            image_bucket_id, image_name, image_url)
-
-        # update redis label job -> completed
-        redis_service.update_hash(
-            f"image_job:{image_id}",
-            {
-                "labels": json.dumps(results),
-                "label_status": "completed"
-            }
-        )
-
-        supabase_service: SupabaseService = service.inference_service.supabase_service
-        image_row = supabase_service.save_image_features_and_labels(
-            image_bucket_id, image_name, results, image_features.squeeze(0).tolist(), user_id=request.user_id)
-
-        # remove image_features from response
-        image_row.pop('image_features')
-
-        return {"status": "success", "data": image_row}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
 @app.post("/api/classify-images")
 async def classify_images(request: ImageBatchRequest, service: AIService = Depends(get_ai_service), redis_service: RedisService = Depends(get_redis_service)):
     # if len(request.data) > 3:
@@ -348,6 +306,16 @@ class QueryImageRequest(BaseModel):
 
 @app.post("/api/query-image")
 def query_image(request: QueryImageRequest, service: AIService = Depends(get_ai_service)):
+    # check user id
+    if request.user_id == '' or request.user_id is None:
+        return {"status": "error", "message": "User id is required."}
+
+    if request.threshold < 0 or request.threshold > 1:
+        return {"status": "error", "message": "Threshold must be between 0 and 1."}
+
+    if request.query == '' or request.query is None:
+        return {"status": "error", "message": "Query is required."}
+
     try:
         result = service.save_text_search_history(
             request.query, request.user_id, request.threshold)
@@ -364,3 +332,44 @@ def query_image(request: QueryImageRequest, service: AIService = Depends(get_ai_
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+
+# @app.post("/api/classify-image")
+# def classify_image(request: ImageRequest, service: AIService = Depends(get_ai_service), redis_service: RedisService = Depends(get_redis_service)):
+#     # check user id
+#     if request.user_id == '' or request.user_id is None:
+#         return {"status": "error", "message": "User id is required."}
+
+#     try:
+#         image_id = request.image_id
+#         image_bucket_id = request.image_bucket_id
+#         image_name = request.image_name
+#         image_url = service.inference_service.supabase_service.get_image_public_url(
+#             image_bucket_id, image_name)
+
+#         # update redis label job -> processing
+#         redis_service.update_image_label_job(
+#             image_id, image_bucket_id, image_name
+#         )
+
+#         results, image_features = service.classify_image(
+#             image_bucket_id, image_name, image_url)
+
+#         # update redis label job -> completed
+#         redis_service.update_hash(
+#             f"image_job:{image_id}",
+#             {
+#                 "labels": json.dumps(results),
+#                 "label_status": "completed"
+#             }
+#         )
+
+#         supabase_service: SupabaseService = service.inference_service.supabase_service
+#         image_row = supabase_service.save_image_features_and_labels(
+#             image_bucket_id, image_name, results, image_features.squeeze(0).tolist(), user_id=request.user_id)
+
+#         # remove image_features from response
+#         image_row.pop('image_features')
+
+#         return {"status": "success", "data": image_row}
+#     except Exception as e:
+#         return {"status": "error", "message": str(e)}
