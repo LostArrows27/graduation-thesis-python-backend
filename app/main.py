@@ -92,6 +92,9 @@ class PersonClustering(BaseModel):
 # each group contain cluster_id, cluster_name, person[]
 @app.post("/api/person-clustering")
 def person_clustering(request: PersonClustering, supabase_service: SupabaseService = Depends(get_supabase_service)):
+    if request.user_id == '' or request.user_id is None:
+        return {"status": "error", "message": "User id is required."}
+
     try:
         user_id = request.user_id
         # get all person of the user

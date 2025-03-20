@@ -126,7 +126,7 @@ class SupabaseService:
         except Exception as e:
             log_error(
                 f"Error get all user person: {e}\n{traceback.format_exc()}")
-            return []
+            raise e
 
     def insert_all_cluster_mapping(self, centroids):
         try:
